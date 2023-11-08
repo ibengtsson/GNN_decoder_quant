@@ -112,7 +112,7 @@ class SineTimeEmbds(torch.nn.Module):
         t_proj = self.time_proj(embd)
         return t_proj
     
-class RecurrentGnn(torch.nn.Module):
+class RecurrentGNN(torch.nn.Module):
     
     def __init__(
         self,
