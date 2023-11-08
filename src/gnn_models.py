@@ -1,5 +1,7 @@
 import torch
-from torch.nn import Linear
+import numpy as np
+from torch.nn import Linear, ModuleList
+from torch import nn
 from torch_geometric.nn import global_mean_pool, GraphConv
 
 class GNN_7(torch.nn.Module):
@@ -80,3 +82,84 @@ class GNN_7(torch.nn.Module):
         X = self.lin4(X)
 
         return X
+
+class SineTimeEmbds(torch.nn.Module):
+    def __init__(self, embd_dim, out_dim, device):
+        super().__init__()
+        self.embd_dim = embd_dim
+        self.out_dim = out_dim
+        self.device = device
+
+        self.time_proj = nn.Sequential(
+            nn.SiLU(),
+            nn.Linear(embd_dim, out_dim)
+        )
+
+    def forward(self, time):
+
+        min_embd_f = 1
+        max_embd_f = 1000
+        
+        f = torch.exp(
+                torch.linspace(
+                    np.log(min_embd_f),
+                    np.log(max_embd_f),
+                    self.embd_dim // 2
+                )
+            )
+        w = (2 * np.pi * f).to(self.device)
+        embd = torch.cat((torch.sin(w * time), torch.cos(w * time)), dim=-1)
+        t_proj = self.time_proj(embd)
+        return t_proj
+    
+class RecurrentGnn(torch.nn.Module):
+    
+    def __init__(
+        self,
+        num_classes=1,
+        num_node_features=3,
+        hidden_chn_gcn=[64, 128, 256, 512],
+        hidden_chn_mlp=[512, 256, 128, 64],
+        time_embd_dim=128,
+        device=None,
+        ):
+        super.__init__()
+        
+        if device == None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else: 
+            self.device = device
+            
+        self.time_embd = SineTimeEmbds(time_embd_dim, hidden_chn_gcn[-1], device=self.device)
+        
+        in_shape_gcn = [num_node_features] + hidden_chn_gcn[:-1]
+        self.graph_layers = ModuleList([GraphConv(in_dim, out_dim) for (in_dim, out_dim) in zip(in_shape_gcn, hidden_chn_gcn)])
+        
+        in_shape_mlp = hidden_chn_gcn[-1:] + hidden_chn_mlp[:-1]
+        self.mlp_layers = ModuleList([Linear(in_dim, out_dim) for (in_dim, out_dim) in zip(in_shape_mlp, hidden_chn_mlp)])
+        
+        self.out_layer = Linear(hidden_chn_mlp[-1], num_classes)
+        
+    def forward(self, x, history, edge_index, edge_attr, batch, time):
+        
+        # time embedding
+        t_embd = self.time_embd(time)
+        
+        for layer in self.graph_layers:
+            x = layer(x, edge_index, edge_weight=edge_attr)
+            x = x.relu()
+            
+        x = global_mean_pool(x, batch)
+        
+        # add historical graph and time embedding - should we have some normalisation here?
+        x = x + t_embd + history
+        
+        # mlp 
+        for layer in self.mlp_layers:
+            x = layer(x)
+            x.relu()
+        
+        return self.out_layer(x)
+        
+        
+        
