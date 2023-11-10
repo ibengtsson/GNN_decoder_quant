@@ -118,8 +118,8 @@ class RecurrentGNN(torch.nn.Module):
         self,
         num_classes=1,
         num_node_features=3,
-        hidden_chn_gcn=[64, 128, 256, 512],
-        hidden_chn_mlp=[512, 256, 128, 64],
+        hidden_chn_gcn=[64, 128, 256, 512, 256, 128],
+        hidden_chn_mlp=[256, 128, 64],
         time_embd_dim=128,
         device=None,
         ):
