@@ -9,4 +9,7 @@
 
 #### General
 * Use auxiliary predictions if a recurrent structure is implemented
+
+#### Improve speed of forward pass (graph convolution)
+* Use `DenseGraphConv` instead of `GraphConv` and make sure we have the correct data structure
 * 

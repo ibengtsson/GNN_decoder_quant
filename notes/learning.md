@@ -28,4 +28,5 @@ Could use $p_{ij}$ matrix to match simulations against experimental data from a 
   * Ex: `def fun(a, b, c)` can be called with `x = [1, 2, 3]` using `fun(*x)`.
   * Split list: Split `x = [1, 2, 3, 4, 5]` using `a, *b, c = x` gives `a = 1, b = [2, 3, 4], c = 5`
 * The double `::step` operator steps through an iterable in `step` long steps. Follows from `x[start:stop:step]` where we just don't define `start` or `stop`!
+* bitwise operator `<<`, increased number in steps! Ex: `3 << 3 = 24` since `3*2*2*2 = 24`. As `3 * 1 << 3`?
 

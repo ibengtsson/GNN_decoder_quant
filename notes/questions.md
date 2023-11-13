@@ -6,4 +6,4 @@
 #### General
 * How would we handle an empty graph? If I understand correctly we do not handle it atm.
 * Do we have Google's data and if so do we have $p_{ij}$ data?
-* 
+* Could GraphConv be slow because we have fully connected graphs?
