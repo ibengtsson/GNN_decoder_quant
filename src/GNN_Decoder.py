@@ -67,7 +67,7 @@ class GNN_Decoder:
 
         if p["cuda"]:
             # Use GPU if available
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             # Move model to GPU if available
             self.model = self.model.to(device)
 

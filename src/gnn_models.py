@@ -3,7 +3,7 @@ import numpy as np
 from torch.nn import Linear, ModuleList
 from torch import nn
 from torch_geometric.nn import global_mean_pool, GraphConv, DenseGraphConv
-from torch_geometric.utils import to_dense_adj
+from torch_geometric.utils import to_dense_adj, to_dense_batch, scatter
 
 
 class GNN_7(torch.nn.Module):
@@ -29,7 +29,7 @@ class GNN_7(torch.nn.Module):
         manual_seed=12345,
     ):
         # num_classes is 1 for each head
-        super(GNN_7, self).__init__()
+        super().__init__()
         if manual_seed is not None:
             torch.manual_seed(manual_seed)
         # GCN layers
@@ -45,19 +45,6 @@ class GNN_7(torch.nn.Module):
         self.lin2 = Linear(hidden_channels_MLP[0], hidden_channels_MLP[1])
         self.lin3 = Linear(hidden_channels_MLP[1], hidden_channels_MLP[2])
         self.lin4 = Linear(hidden_channels_MLP[2], num_classes)
-
-        # Reset parameters on initialization of model instance
-        self.graph1.reset_parameters()
-        self.graph2.reset_parameters()
-        self.graph3.reset_parameters()
-        self.graph4.reset_parameters()
-        self.graph5.reset_parameters()
-        self.graph6.reset_parameters()
-        self.graph7.reset_parameters()
-        self.lin1.reset_parameters()
-        self.lin2.reset_parameters()
-        self.lin3.reset_parameters()
-        self.lin4.reset_parameters()
 
     def forward(self, x, edge_index, edge_attr, batch):
         # Obtain node embeddings
@@ -113,7 +100,7 @@ class GNN_7_DenseConv(torch.nn.Module):
         manual_seed=12345,
     ):
         # num_classes is 1 for each head
-        super(GNN_7, self).__init__()
+        super().__init__()
         if manual_seed is not None:
             torch.manual_seed(manual_seed)
         # GCN layers
@@ -130,40 +117,31 @@ class GNN_7_DenseConv(torch.nn.Module):
         self.lin3 = Linear(hidden_channels_MLP[1], hidden_channels_MLP[2])
         self.lin4 = Linear(hidden_channels_MLP[2], num_classes)
 
-        # Reset parameters on initialization of model instance
-        self.graph1.reset_parameters()
-        self.graph2.reset_parameters()
-        self.graph3.reset_parameters()
-        self.graph4.reset_parameters()
-        self.graph5.reset_parameters()
-        self.graph6.reset_parameters()
-        self.graph7.reset_parameters()
-        self.lin1.reset_parameters()
-        self.lin2.reset_parameters()
-        self.lin3.reset_parameters()
-        self.lin4.reset_parameters()
-
     def forward(self, x, edge_index, edge_attr, batch):
+        
+        # reshape to fit with dense layer
+        dense_adj = to_dense_adj(edge_index, batch, edge_attr).squeeze()
+        x, dense_batch = to_dense_batch(x, batch)
+
         # Obtain node embeddings
+        x = self.graph1(x, dense_adj, dense_batch)
+        x = x.relu()
+        x = self.graph2(x, dense_adj, dense_batch)
+        x = x.relu()
+        x = self.graph3(x, dense_adj, dense_batch)
+        x = x.relu()
+        x = self.graph4(x, dense_adj, dense_batch)
+        x = x.relu()
+        x = self.graph5(x, dense_adj, dense_batch)
+        x = x.relu()
+        x = self.graph6(x, dense_adj, dense_batch)
+        x = x.relu()
+        x = self.graph7(x, dense_adj, dense_batch)
+        x = x.relu()
         
-        dense_adj = to_dense_adj(edge_index, batch, edge_attr)
+        # I think this corresponds to mean global max pooling
+        x = torch.div(torch.sum(x, dim=1), torch.sum(dense_batch, dim=1)[:, None])
         
-        x = self.graph1(x, dense_adj, batch)
-        x = x.relu()
-        x = self.graph2(x, dense_adj, batch)
-        x = x.relu()
-        x = self.graph3(x, dense_adj, batch)
-        x = x.relu()
-        x = self.graph4(x, dense_adj, batch)
-        x = x.relu()
-        x = self.graph5(x, dense_adj, batch)
-        x = x.relu()
-        x = self.graph6(x, dense_adj, batch)
-        x = x.relu()
-        x = self.graph7(x, dense_adj, batch)
-        x = x.relu()
-        # obtain graph embedding
-        x = global_mean_pool(x, batch)
         # Apply X(Z) classifier
         X = self.lin1(x)
         X = X.relu()
