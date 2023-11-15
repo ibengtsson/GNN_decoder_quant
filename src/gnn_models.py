@@ -62,6 +62,7 @@ class GNN_7(torch.nn.Module):
         x = x.relu()
         x = self.graph7(x, edge_index, edge_weight=edge_attr)
         x = x.relu()
+
         # obtain graph embedding
         x = global_mean_pool(x, batch)
         # Apply X(Z) classifier
@@ -74,7 +75,8 @@ class GNN_7(torch.nn.Module):
         X = self.lin4(X)
 
         return X
-    
+
+
 class GNN_7_DenseConv(torch.nn.Module):
     """
     GNN with 7 consecutive GraphConv layers, whose final output is converted
@@ -87,7 +89,7 @@ class GNN_7_DenseConv(torch.nn.Module):
     representation of the predicted equivalence class.
     0 <-> class I
     1 <-> class X or Z
-    
+
     TODO: UPDATE!
     """
 
@@ -118,30 +120,35 @@ class GNN_7_DenseConv(torch.nn.Module):
         self.lin4 = Linear(hidden_channels_MLP[2], num_classes)
 
     def forward(self, x, edge_index, edge_attr, batch):
-        
-        # reshape to fit with dense layer
+        # reshape to tensor compatible with DenseGraphConv
+        # note that "batch" changes shape in "to_dense_batch"
         dense_adj = to_dense_adj(edge_index, batch, edge_attr).squeeze()
-        x, dense_batch = to_dense_batch(x, batch)
+        x, batch = to_dense_batch(x, batch)
 
         # Obtain node embeddings
-        x = self.graph1(x, dense_adj, dense_batch)
+        x = self.graph1(x, dense_adj, batch)
         x = x.relu()
-        x = self.graph2(x, dense_adj, dense_batch)
+        x = self.graph2(x, dense_adj, batch)
         x = x.relu()
-        x = self.graph3(x, dense_adj, dense_batch)
+        x = self.graph3(x, dense_adj, batch)
         x = x.relu()
-        x = self.graph4(x, dense_adj, dense_batch)
+        x = self.graph4(x, dense_adj, batch)
         x = x.relu()
-        x = self.graph5(x, dense_adj, dense_batch)
+        x = self.graph5(x, dense_adj, batch)
         x = x.relu()
-        x = self.graph6(x, dense_adj, dense_batch)
+        x = self.graph6(x, dense_adj, batch)
         x = x.relu()
-        x = self.graph7(x, dense_adj, dense_batch)
+        x = self.graph7(x, dense_adj, batch)
         x = x.relu()
-        
-        # I think this corresponds to mean global max pooling
-        x = torch.div(torch.sum(x, dim=1), torch.sum(dense_batch, dim=1)[:, None])
-        
+
+        # okay solution but maybe the division could be optimized?
+        # problem is that we cannot take mean directly as x is padded with zeros for all graphs with
+        # nodes less than "max number of nodes" in batch
+        x = (
+            torch.bmm(x.permute(0, 2, 1), batch[:, :, None].float()).squeeze()
+            / torch.sum(batch, dim=1)[:, None]
+        )
+
         # Apply X(Z) classifier
         X = self.lin1(x)
         X = X.relu()
@@ -176,11 +183,11 @@ class RecurrentGNN(torch.nn.Module):
         in_shape_gcn = [num_node_features] + hidden_chn_gcn[:-1]
         self.graph_layers = ModuleList(
             [
-                GraphConv(in_dim, out_dim)
+                DenseGraphConv(in_dim, out_dim)
                 for (in_dim, out_dim) in zip(in_shape_gcn, hidden_chn_gcn)
             ]
         )
-
+        
         self.lstm = nn.LSTM(
             input_size=hidden_chn_gcn[-1], hidden_size=hidden_size, batch_first=True
         )
@@ -196,15 +203,23 @@ class RecurrentGNN(torch.nn.Module):
         self.out_layer = Linear(hidden_chn_mlp[-1], num_classes)
 
     def forward(self, x, edge_index, edge_attr, batch):
+        # reshape to tensor compatible with DenseGraphConv
+        dense_adj = to_dense_adj(edge_index, batch, edge_attr).squeeze()
+        x, batch = to_dense_batch(x, batch)
+
         for layer in self.graph_layers:
-            x = layer(x, edge_index, edge_weight=edge_attr)
+            x = layer(x, dense_adj, batch)
             x = x.relu()
 
-        x = global_mean_pool(x, batch)
+        x = (
+            torch.bmm(x.permute(0, 2, 1), batch[:, :, None].float()).squeeze()
+            / torch.sum(batch, dim=1)[:, None]
+        )
 
         # reshape so we get time dimension right
         x = torch.reshape(x, (-1, self.repetitions, x.shape[1]))
         x, _ = self.lstm(x)
+        
         # mlp
         for layer in self.mlp_layers:
             x = layer(x)
