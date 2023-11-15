@@ -9,7 +9,6 @@ __pycache__
 
 # output files 
 *.out
-*.txt
 
 # data file:
 *.pkl
