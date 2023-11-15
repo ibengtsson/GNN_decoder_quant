@@ -12,4 +12,9 @@
 
 #### Improve speed of forward pass (graph convolution)
 * Use `DenseGraphConv` instead of `GraphConv` and make sure we have the correct data structure
-* 
+  * Using DenseConv seems to be faster when batch size increases! Major speed-ups seen on CPU, not yet verified how much of a speed-up on GPU.
+
+#### Downsampling graph
+* Should be able to find algorithm that can downsample graph for us
+  * k-NN neighbour downsample?
+  * 
