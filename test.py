@@ -78,7 +78,7 @@ def main():
     decoder = GNN_Decoder(gnn_params)
     print("Decoder was successfully created")
     
-    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=20000, seed=seed)
+    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=100000, seed=seed)
     syndromes, flips = sim.generate_syndromes(n_graphs)
 
     graphs = []
