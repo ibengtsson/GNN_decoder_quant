@@ -41,8 +41,9 @@ def main():
     batch_size = 512
     if args.batch_size:
         batch_size = args.batch_size
+        print(f"Using batch size {batch_size}.")
     else: 
-        print(f"Usingd default batch size {batch_size}")
+        print(f"Using default batch size {batch_size}.")
 
     # graph settings
     n_node_feats = 5
