@@ -15,6 +15,7 @@ def main():
     # read input arguments
     parser = argparse.ArgumentParser(description="Choose model and optionally GPU instance.")
     parser.add_argument("-m", "--model", required=True)
+    parser.add_argument("-b", "--batch_size", required=False)
     parser.add_argument("-g", "--gpu", required=False)
     
     args = parser.parse_args()
@@ -34,10 +35,14 @@ def main():
     # training settings
     n_epochs = 1
     n_graphs = 20000
-    batch_sz = 4
     lr = 1e-3
     loss = nn.BCEWithLogitsLoss()
     seed = 11
+    batch_size = 512
+    if args.batch_size:
+        batch_size = args.batch_size
+    else: 
+        print(f"Usingd default batch size {batch_size}")
 
     # graph settings
     n_node_feats = 5
