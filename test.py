@@ -1,4 +1,5 @@
 import numpy as np
+import sys, getopt
 from tqdm import tqdm
 import torch
 import torch.nn as nn
@@ -9,7 +10,21 @@ from src.gnn_models import GNN_7, GNN_7_DenseConv
 from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
 
-if __name__ == "__main__":
+def main(argv):
+    
+    # read which model to use
+    opts, args = getopt.getopt(argv,"m:",["model="])
+    for opt, arg in opts:
+        if opt in ("-m", "--model"):
+            if arg == "GNN_7":
+                model_class = GNN_7
+            elif arg == "GNN_7_DenseConv":
+                model_class = GNN_7_DenseConv
+            else:
+                TypeError("Must pick viable model class alternative!")
+                
+    print(f"Using model {arg}")
+        
     # code and noise settings
     code_sz = 5
     p = 3e-3
@@ -17,7 +32,7 @@ if __name__ == "__main__":
 
     # training settings
     n_epochs = 1
-    n_graphs = 5000
+    n_graphs = 20000
     batch_sz = 4
     lr = 1e-3
     loss = nn.BCEWithLogitsLoss()
@@ -32,7 +47,7 @@ if __name__ == "__main__":
     # initialise decoder parameters
     gnn_params = {
         "model": {
-            "class": GNN_7,
+            "class": model_class,
             "num_classes": 1,
             "loss": loss,
             "num_node_features": n_node_feats,
@@ -49,7 +64,7 @@ if __name__ == "__main__":
     decoder = GNN_Decoder(gnn_params)
     print("Decoder was successfully created")
     
-    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=5000, seed=seed)
+    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=20000, seed=seed)
     syndromes, flips = sim.generate_syndromes(n_graphs)
 
     graphs = []
@@ -69,7 +84,7 @@ if __name__ == "__main__":
             )
         )
 
-    loader = DataLoader(graphs, batch_size=128)
+    loader = DataLoader(graphs, batch_size=5012)
 
     print(f"We have #{len(loader)} batches.")
     # run forward pass
@@ -83,3 +98,7 @@ if __name__ == "__main__":
         )
     
     print(f"Mean value of output: {out.mean()}")
+    
+    
+if __name__ == "__main__":
+    main(sys.argv[1:])
