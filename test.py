@@ -85,7 +85,7 @@ def main(argv):
             )
         )
 
-    loader = DataLoader(graphs, batch_size=2048)
+    loader = DataLoader(graphs, batch_size=5012)
 
     print(f"We have #{len(loader)} batches.")
     # run forward pass
@@ -97,6 +97,7 @@ def main(argv):
             edge_attr=batch.edge_attr,
             batch=batch.batch,
         )
+        del batch
     
     print(f"Mean value of output: {out.mean()}")
     
