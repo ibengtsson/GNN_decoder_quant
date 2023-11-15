@@ -20,7 +20,7 @@ def main():
 
     # training settings
     n_epochs = 1
-    n_graphs = 20000
+    n_graphs = 100000
     lr = 1e-3
     loss = nn.BCEWithLogitsLoss()
     seed = 11
@@ -78,7 +78,7 @@ def main():
     decoder = GNN_Decoder(gnn_params)
     print("Decoder was successfully created")
     
-    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=100000, seed=seed)
+    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
     syndromes, flips = sim.generate_syndromes(n_graphs)
 
     graphs = []
