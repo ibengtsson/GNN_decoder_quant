@@ -11,8 +11,26 @@ from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
 
 def main():
+    
+    # default settings:
+    # code and noise settings
+    code_sz = 5
+    p = 3e-3
+    reps = 10
 
-    # read input arguments
+    # training settings
+    n_epochs = 1
+    n_graphs = 20000
+    lr = 1e-3
+    loss = nn.BCEWithLogitsLoss()
+    seed = 11
+    batch_size = 512
+
+    # graph settings
+    n_node_feats = 5
+    power = 1
+    
+    # read input arguments and potentially overwrite default settings
     parser = argparse.ArgumentParser(description="Choose model and optionally GPU instance.")
     parser.add_argument("-m", "--model", required=True)
     parser.add_argument("-b", "--batch_size", required=False)
@@ -26,36 +44,19 @@ def main():
     else:
         print("Using default model class, GNN_7.")
         model_class = GNN_7
-        
-    # code and noise settings
-    code_sz = 5
-    p = 3e-3
-    reps = 10
-
-    # training settings
-    n_epochs = 1
-    n_graphs = 20000
-    lr = 1e-3
-    loss = nn.BCEWithLogitsLoss()
-    seed = 11
-    batch_size = 512
+    
+    if args.gpu:   
+        device = torch.device(args.gpu if torch.cuda.is_available() else "cpu")
+        print(f"Using {device}.")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using default device {device}.")
+    
     if args.batch_size:
         batch_size = args.batch_size
         print(f"Using batch size {batch_size}.")
     else: 
         print(f"Using default batch size {batch_size}.")
-
-    # graph settings
-    n_node_feats = 5
-    power = 1
-    
-    if args.gpu:   
-        device = torch.device(args.gpu if torch.cuda.is_available() else "cpu")
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    print(device)
-    cuda = True if torch.cuda.is_available() else False
 
     # initialise decoder parameters
     gnn_params = {
@@ -71,7 +72,7 @@ def main():
             "num_node_features": n_node_feats,
             "power": power,
         },
-        "cuda": cuda,
+        "device": device,
     }
     
     decoder = GNN_Decoder(gnn_params)
