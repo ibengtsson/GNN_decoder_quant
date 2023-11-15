@@ -1,5 +1,5 @@
 import numpy as np
-import sys, getopt
+import argparse
 from tqdm import tqdm
 import torch
 import torch.nn as nn
@@ -10,21 +10,21 @@ from src.gnn_models import GNN_7, GNN_7_DenseConv
 from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
 
-def main(argv):
+def main():
+
+    # read input arguments
+    parser = argparse.ArgumentParser(description="Choose model and optionally GPU instance.")
+    parser.add_argument("-m", "--model", required=True)
+    parser.add_argument("-g", "--gpu", required=False)
     
-    # read which model to use
-    opts, args = getopt.getopt(argv,"m:",["model="]) 
-    
-    # default
-    model_class = GNN_7
-    for opt, arg in opts:
-        if opt in ("-m", "--model"):
-            if arg == "GNN_7":
-                model_class = GNN_7
-            elif arg == "GNN_7_DenseConv":
-                model_class = GNN_7_DenseConv
-            else:
-                TypeError("Must pick viable model class alternative!")
+    args = parser.parse_args()
+    if args.model == "GNN_7":
+        model_class = GNN_7
+    elif args.model == "GNN_7_DenseConv":
+        model_class = GNN_7_DenseConv
+    else:
+        print("Using default model class, GNN_7.")
+        model_class = GNN_7
         
     # code and noise settings
     code_sz = 5
@@ -42,7 +42,13 @@ def main(argv):
     # graph settings
     n_node_feats = 5
     power = 1
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    if args.gpu:   
+        device = torch.device(args.gpu if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    print(device)
     cuda = True if torch.cuda.is_available() else False
 
     # initialise decoder parameters
@@ -103,4 +109,4 @@ def main(argv):
     
     
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
