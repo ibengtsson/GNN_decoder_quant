@@ -120,6 +120,7 @@ class GNN_7_DenseConv(torch.nn.Module):
         self.lin4 = Linear(hidden_channels_MLP[2], num_classes)
 
     def forward(self, x, edge_index, edge_attr, batch):
+        
         # reshape to tensor compatible with DenseGraphConv
         # note that "batch" changes shape in "to_dense_batch"
         dense_adj = to_dense_adj(edge_index, batch, edge_attr).squeeze()

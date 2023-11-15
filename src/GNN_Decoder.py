@@ -31,7 +31,7 @@ class GNN_Decoder:
                 "manual_seed": 12345,
             },
             "graph": {"m_nearest_nodes": None, "num_node_features": 4, "power": 2},
-            "cuda": False,
+            "device": torch.device("cpu"),
             "silent": False,
             "save_path": "./",
             "save_prefix": None,
@@ -65,12 +65,10 @@ class GNN_Decoder:
         except TypeError:
             print("!!!!!!Input model must be a valid GNN class!!!!!!")
 
-        if p["cuda"]:
-            # Use GPU if available
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            # Move model to GPU if available
+        if p["device"]:
+            device = p["device"]
             self.model = self.model.to(device)
-
+        
         # Create lists to store results from consecutive training loops
         self.clear_results()
 
