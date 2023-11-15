@@ -85,7 +85,7 @@ def main(argv):
             )
         )
 
-    loader = DataLoader(graphs, batch_size=1024)
+    loader = DataLoader(graphs, batch_size=2048)
 
     print(f"We have #{len(loader)} batches.")
     # run forward pass
