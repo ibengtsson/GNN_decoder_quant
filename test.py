@@ -13,7 +13,10 @@ from src.graph_representation import get_3D_graph
 def main(argv):
     
     # read which model to use
-    opts, args = getopt.getopt(argv,"m:",["model="])
+    opts, args = getopt.getopt(argv,"m:",["model="]) 
+    
+    # default
+    model_class = GNN_7
     for opt, arg in opts:
         if opt in ("-m", "--model"):
             if arg == "GNN_7":
@@ -22,8 +25,6 @@ def main(argv):
                 model_class = GNN_7_DenseConv
             else:
                 TypeError("Must pick viable model class alternative!")
-                
-    print(f"Using model {arg}")
         
     # code and noise settings
     code_sz = 5
