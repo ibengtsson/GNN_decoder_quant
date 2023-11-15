@@ -91,10 +91,10 @@ def main():
 
         graphs.append(
             Data(
-                x=torch.from_numpy(graph[0]).to(device),
-                edge_index=torch.from_numpy(graph[1]).to(device),
-                edge_attr=torch.from_numpy(graph[2]).to(device),
-                y=torch.from_numpy(graph[3]).to(device),
+                x=torch.from_numpy(graph[0]),
+                edge_index=torch.from_numpy(graph[1]),
+                edge_attr=torch.from_numpy(graph[2]),
+                y=torch.from_numpy(graph[3]),
             )
         )
 
@@ -103,15 +103,20 @@ def main():
     print(f"We have #{len(loader)} batches.")
     # run forward pass
     for batch in tqdm(loader):
-        batch.batch = batch.batch.to(device)
+        
+        # move what we need to gpu
+        x = batch.x.to(device)
+        edge_index = batch.edge_index.to(device)
+        edge_attr = batch.edge_attr.to(device)
+        batch_label = batch.batch.to(device)
+        
         out = decoder(
-            x=batch.x,
-            edge_index=batch.edge_index,
-            edge_attr=batch.edge_attr,
-            batch=batch.batch,
+            x=x,
+            edge_index=edge_index,
+            edge_attr=edge_attr,
+            batch=batch_label,
         )
-        del batch
-    
+
     print(f"Mean value of output: {out.mean()}")
     
     
