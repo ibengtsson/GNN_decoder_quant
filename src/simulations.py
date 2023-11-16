@@ -168,7 +168,7 @@ class QECCodeSim:
         return stabilizer_changes, flips.astype(np.uint8)
 
 
-class RepetitionCodeSim_numpy(QECCodeSim):
+class RepetitionCodeSim(QECCodeSim):
     def __init__(
         self,
         repetitions,
@@ -182,7 +182,7 @@ class RepetitionCodeSim_numpy(QECCodeSim):
         )
 
 
-class SurfaceCodeSim_numpy(QECCodeSim):
+class SurfaceCodeSim(QECCodeSim):
     def __init__(
         self,
         repetitions,
