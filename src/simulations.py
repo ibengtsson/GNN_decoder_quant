@@ -32,7 +32,7 @@ class QECCodeSim:
         det_coords[:, :2] = det_coords[:, :2] / 2
 
         # convert to integers
-        det_coords = det_coords.int()
+        det_coords = det_coords.long()
 
         return det_coords
 
