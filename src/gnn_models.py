@@ -146,8 +146,8 @@ class GNN_7_DenseConv(torch.nn.Module):
         # problem is that we cannot take mean directly as x is padded with zeros for all graphs with
         # nodes less than "max number of nodes" in batch
         x = (
-            torch.bmm(x.permute(0, 2, 1), batch[:, :, None].float()).squeeze()
-            / torch.sum(batch, dim=1)[:, None]
+            torch.bmm(x.permute(0, 2, 1), torch.unsqueeze(batch, -1).float()).squeeze()
+            / torch.unsqueeze(torch.sum(batch, dim=1), -1)
         )
 
         # Apply X(Z) classifier
@@ -213,8 +213,8 @@ class RecurrentGNN(torch.nn.Module):
             x = x.relu()
 
         x = (
-            torch.bmm(x.permute(0, 2, 1), batch[:, :, None].float()).squeeze()
-            / torch.sum(batch, dim=1)[:, None]
+            torch.bmm(x.permute(0, 2, 1), torch.unsqueeze(batch, -1).float()).squeeze()
+            / torch.unsqueeze(torch.sum(batch, dim=1), -1)
         )
 
         # reshape so we get time dimension right
