@@ -7,7 +7,7 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from src.GNN_Decoder import GNN_Decoder
 from src.gnn_models import GNN_7, GNN_7_DenseConv
-from src.simulations import SurfaceCodeSim, SurfaceCodeSim_numpy
+from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
 from torch_geometric.nn import knn_graph
 
@@ -85,7 +85,7 @@ def main():
     decoder = GNN_Decoder(gnn_params)
     print("Decoder was successfully created")
 
-    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, device=device, seed=seed)
+    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
     
     syndromes, flips = sim.generate_syndromes(n_graphs)
 
