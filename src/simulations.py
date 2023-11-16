@@ -109,8 +109,8 @@ class SurfaceCodeSim(QECCodeSim):
             while syndromes.shape[0] < n_syndromes:
                 n_shots = n_syndromes - len(syndromes)
                 new_syndromes, new_flips = self.generate_syndromes(n_shots=n_shots)
-                syndromes = torch.concatenate((syndromes, new_syndromes))
-                flips = torch.concatenate((flips, new_flips))
+                syndromes = torch.cat((syndromes, new_syndromes))
+                flips = torch.cat((flips, new_flips))
 
             syndromes = syndromes[:n_syndromes]
             flips = flips[:n_syndromes]
