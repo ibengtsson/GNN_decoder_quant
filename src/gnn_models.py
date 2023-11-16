@@ -24,7 +24,7 @@ class GNN_7(torch.nn.Module):
         self,
         hidden_channels_GCN=(32, 128, 256, 512, 512, 256, 256),
         hidden_channels_MLP=(256, 128, 64),
-        num_node_features=4,
+        num_node_features=5,
         num_classes=1,
         manual_seed=12345,
     ):
