@@ -89,7 +89,6 @@ def main():
     
     syndromes, flips = sim.generate_syndromes(n_graphs)
 
-    return
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
         graph = get_3D_graph(
@@ -111,29 +110,29 @@ def main():
 
     print(f"We have #{len(loader)} batches.")
     # run forward pass
-    with profile(
-        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True
-    ) as prof:
-        with record_function("forward pass"):
-            for batch in loader:
-                # move what we need to gpu
-                x = batch.x.to(device)
-                batch_label = batch.batch.to(device)
+    # with profile(
+    #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True
+    # ) as prof:
+    #     with record_function("forward pass"):
+    for batch in loader:
+        # move what we need to gpu
+        x = batch.x.to(device)
+        batch_label = batch.batch.to(device)
 
-                # prune graphs
-                if m_nearest_nodes is not None:
-                    knn_graph(x[:, 2:], m_nearest_nodes, batch_label, flow="target_to_source")
-                edge_index = batch.edge_index.to(device)
-                edge_attr = batch.edge_attr.to(device)
-                
-                out = decoder(
-                    x=x,
-                    edge_index=edge_index,
-                    edge_attr=edge_attr,
-                    batch=batch_label,
-                )
+        # prune graphs
+        if m_nearest_nodes is not None:
+            knn_graph(x[:, 2:], m_nearest_nodes, batch_label, flow="target_to_source")
+        edge_index = batch.edge_index.to(device)
+        edge_attr = batch.edge_attr.to(device)
+        
+        out = decoder(
+            x=x,
+            edge_index=edge_index,
+            edge_attr=edge_attr,
+            batch=batch_label,
+        )
 
-    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+    # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
 
 
 if __name__ == "__main__":
