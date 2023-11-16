@@ -58,7 +58,7 @@ def main():
         print(f"Using default device {device}.")
 
     if args.batch_size:
-        batch_size = args.batch_size
+        batch_size = int(args.batch_size)
         print(f"Using batch size {batch_size}.")
     else:
         print(f"Using default batch size {batch_size}.")
