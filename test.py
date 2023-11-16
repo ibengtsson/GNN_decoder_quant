@@ -115,15 +115,12 @@ def main():
     # ) as prof:
     #     with record_function("forward pass"):
     for batch in loader:
-        # move what we need to gpu
+        
+        # move what we need to device
         x = batch.x.to(device)
-        batch_label = batch.batch.to(device)
-
-        # prune graphs
-        if m_nearest_nodes is not None:
-            knn_graph(x[:, 2:], m_nearest_nodes, batch_label, flow="target_to_source")
         edge_index = batch.edge_index.to(device)
         edge_attr = batch.edge_attr.to(device)
+        batch_label = batch.batch.to(device)
         
         out = decoder(
             x=x,
