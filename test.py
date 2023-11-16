@@ -10,6 +10,9 @@ from src.gnn_models import GNN_7, GNN_7_DenseConv
 from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
 
+# profiling
+from torch.profiler import profile, record_function, ProfilerActivity
+
 def main():
     
     # default settings:
@@ -110,15 +113,17 @@ def main():
         edge_attr = batch.edge_attr.to(device)
         batch_label = batch.batch.to(device)
         
-        out = decoder(
-            x=x,
-            edge_index=edge_index,
-            edge_attr=edge_attr,
-            batch=batch_label,
-        )
-
-    print(f"Mean value of output: {out.mean()}")
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+            with record_function("forward pass"):
+                out = decoder(
+                    x=x,
+                    edge_index=edge_index,
+                    edge_attr=edge_attr,
+                    batch=batch_label,
+                )
+        break
     
+    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
     
 if __name__ == "__main__":
     main()
