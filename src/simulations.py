@@ -34,9 +34,12 @@ class QECCodeSim:
 
         return det_coords
 
-    def sample_syndromes(self):
+    def sample_syndromes(self, n_shots=None):
+        
+        if n_shots == None:
+            n_shots = self.n_shots
         stim_data, observable_flips = self.compiled_sampler.sample(
-            shots=self.n_shots, separate_observables=True,
+            shots=n_shots, separate_observables=True,
         )
         # sums over the detectors to check if we have a parity change
         shots_w_flips = np.sum(stim_data, axis=1) != 0
@@ -77,34 +80,26 @@ class SurfaceCodeSim(QECCodeSim):
 
         return np.dstack([syndrome_x + syndrome_z] * (self.repetitions + 1))
 
-    def generate_syndromes(self, n_syndromes=None):
+    def generate_syndromes(self, n_syndromes=None, n_shots=None):
         
         det_coords = super().get_detector_coords()
-        stabilizer_changes, flips = super().sample_syndromes()
-        mask = self.syndrome_mask()
+        stabilizer_changes, flips = super().sample_syndromes(n_shots)
 
-        syndromes = []
-        for cycle in stabilizer_changes:
-            syndrome = np.zeros_like(mask)
-
-            # stack stabilizer changes as first-to-last time step
-            # note that detector coords represents the coordinates (x, y, t) of the measurement qubits
-            syndrome[det_coords[:, 1], det_coords[:, 0], det_coords[:, 2]] = cycle
-
-            # we only care about differences in measurements
-            syndrome[:, :, 1:] = (syndrome[:, :, 1:] - syndrome[:, :, 0:-1]) % 2
-
-            # using our code_grid we can convert X/Z stabilizer measurements to 1:s and 3:s
-            syndrome[np.nonzero(syndrome)] = mask[np.nonzero(syndrome)]
-            syndromes.append(syndrome)
-            
+        mask = np.repeat(self.syndrome_mask()[None, ...], stabilizer_changes.shape[0], 0)
+        syndromes = np.zeros_like(mask)
+        syndromes[:, det_coords[:, 1], det_coords[:, 0], det_coords[:, 2]] = stabilizer_changes
+        syndromes[..., 1:] = (syndromes[..., 1:] - syndromes[..., 0:-1]) % 2
+        syndromes[np.nonzero(syndromes)] = mask[np.nonzero(syndromes)]
+        
         # make sure we get enough syndromes if a certain number is desired
         if n_syndromes is not None:
-            while len(syndromes) < n_syndromes:
-                new_syndromes, new_flips = self.generate_syndromes()
-                syndromes += new_syndromes
-                flips =  np.concatenate((flips, new_flips))
+            while syndromes.shape[0] < n_syndromes:
+                n_shots = n_syndromes - len(syndromes)
+                new_syndromes, new_flips = self.generate_syndromes(n_shots=n_shots)
+                syndromes = np.concatenate((syndromes, new_syndromes))
+                flips = np.concatenate((flips, new_flips))
 
             syndromes = syndromes[:n_syndromes]
             flips = flips[:n_syndromes]
+
         return syndromes, flips
