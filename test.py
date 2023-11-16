@@ -7,8 +7,9 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from src.GNN_Decoder import GNN_Decoder
 from src.gnn_models import GNN_7, GNN_7_DenseConv
-from src.simulations import SurfaceCodeSim
+from src.simulations import SurfaceCodeSim, SurfaceCodeSim_numpy
 from src.graph_representation import get_3D_graph
+from torch_geometric.nn import knn_graph
 
 # profiling
 from torch.profiler import profile, record_function, ProfilerActivity
@@ -23,7 +24,7 @@ def main():
 
     # training settings
     n_epochs = 1
-    n_graphs = 100000
+    n_graphs = 1000
     lr = 1e-3
     loss = nn.BCEWithLogitsLoss()
     seed = 11
@@ -32,6 +33,7 @@ def main():
     # graph settings
     n_node_feats = 5
     power = 1
+    m_nearest_nodes = 5
 
     # read input arguments and potentially overwrite default settings
     parser = argparse.ArgumentParser(
@@ -83,15 +85,18 @@ def main():
     decoder = GNN_Decoder(gnn_params)
     print("Decoder was successfully created")
 
-    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
+    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, device=device, seed=seed)
+    
     syndromes, flips = sim.generate_syndromes(n_graphs)
 
+    return
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
         graph = get_3D_graph(
             syndrome_3D=syndrome,
             target=flip,
             power=power,
+            m_nearest_nodes=3
         )
 
         graphs.append(
@@ -102,7 +107,6 @@ def main():
                 y=torch.from_numpy(graph[3]),
             )
         )
-
     loader = DataLoader(graphs, batch_size=batch_size)
 
     print(f"We have #{len(loader)} batches.")
@@ -114,10 +118,14 @@ def main():
             for batch in loader:
                 # move what we need to gpu
                 x = batch.x.to(device)
-                edge_index = batch.edge_index.to(device)
-                edge_attr = batch.edge_attr.to(device)
                 batch_label = batch.batch.to(device)
 
+                # prune graphs
+                if m_nearest_nodes is not None:
+                    knn_graph(x[:, 2:], m_nearest_nodes, batch_label, flow="target_to_source")
+                edge_index = batch.edge_index.to(device)
+                edge_attr = batch.edge_attr.to(device)
+                
                 out = decoder(
                     x=x,
                     edge_index=edge_index,
