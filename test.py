@@ -24,7 +24,7 @@ def main():
 
     # training settings
     n_epochs = 1
-    n_graphs = 1000
+    n_graphs = 100000
     lr = 1e-3
     loss = nn.BCEWithLogitsLoss()
     seed = 11
