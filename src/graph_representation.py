@@ -1,5 +1,6 @@
 '''Package with functions for creating graph representations of syndromes.'''
 import numpy as np
+import torch
 
 def get_node_list_3D(syndrome_3D):
     """
@@ -110,10 +111,10 @@ def get_3D_graph(syndrome_3D,
     edge_index = np.nonzero(Adj)
     edge_attr = Adj[edge_index].reshape(n_edges, 1)
     edge_index = np.array(edge_index)
-
+    
     if target is not None:
         y = target.reshape(1, 1)
     else:
         y = None
 
-    return [X.astype(np.float32), edge_index.astype(np.int64,), edge_attr.astype(np.float32), y.astype(np.float32)]
+    return [X.astype(np.float32), edge_index.astype(np.int64), edge_attr.astype(np.float32), y.astype(np.float32)]
