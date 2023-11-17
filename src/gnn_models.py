@@ -3,7 +3,7 @@ import numpy as np
 from torch.nn import Linear, ModuleList
 from torch import nn
 from torch_geometric.nn import global_mean_pool, GraphConv, DenseGraphConv
-from torch_geometric.utils import to_dense_adj, to_dense_batch, scatter
+from torch_geometric.utils import to_dense_adj, to_dense_batch
 
 
 class GNN_7(torch.nn.Module):

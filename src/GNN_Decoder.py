@@ -771,6 +771,7 @@ def generate_batch(
             target=true_eq_class,
             power=power,
             m_nearest_nodes=m_nearest_nodes,
+            use_knn=False,
         )
         batch.append(graph)
     return batch
