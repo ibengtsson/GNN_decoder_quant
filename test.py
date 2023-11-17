@@ -4,13 +4,14 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader, DynamicBatchSampler
 from src.GNN_Decoder import GNN_Decoder
 from src.gnn_models import GNN_7, GNN_7_DenseConv
 from src.simulations import SurfaceCodeSim
-from src.graph_representation import get_3D_graph
+from src.graph_representation import get_3D_graph, prune_graph
+import torch_geometric.nn as nn_g
 from torch_geometric.nn import knn_graph
-
+from icecream import ic
 # profiling
 from torch.profiler import profile, record_function, ProfilerActivity
 
@@ -18,13 +19,13 @@ from torch.profiler import profile, record_function, ProfilerActivity
 def main():
     # default settings:
     # code and noise settings
-    code_sz = 5
+    code_sz = 50
     p = 3e-3
-    reps = 10
+    reps = 50
 
     # training settings
     n_epochs = 1
-    n_graphs = 100000
+    n_graphs = 10
     lr = 1e-3
     loss = nn.BCEWithLogitsLoss()
     seed = 11
@@ -86,41 +87,41 @@ def main():
     print("Decoder was successfully created")
 
     sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
-    
+
     syndromes, flips = sim.generate_syndromes(n_graphs)
 
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
-        graph = get_3D_graph(
-            syndrome_3D=syndrome,
-            target=flip,
-            power=power,
-            m_nearest_nodes=3
+        # x, edge_index, edge_attr, y = get_3D_graph(
+        #     syndrome_3D=syndrome, target=flip, power=power, m_nearest_nodes=3, use_knn=True
+        # )
+        
+        x, edge_index, edge_attr, y = get_3D_graph(
+            syndrome_3D=syndrome, target=flip, power=power, m_nearest_nodes=3, test=False, use_knn=True
         )
-
-        graphs.append(
-            Data(
-                x=torch.from_numpy(graph[0]),
-                edge_index=torch.from_numpy(graph[1]),
-                edge_attr=torch.from_numpy(graph[2]),
-                y=torch.from_numpy(graph[3]),
-            )
-        )
+        graphs.append(Data(x, edge_index, edge_attr, y))
     loader = DataLoader(graphs, batch_size=batch_size)
-
-    print(f"We have #{len(loader)} batches.")
+    return
+    # print(f"We have #{len(loader)} batches.")
     # run forward pass
     # with profile(
     #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True
     # ) as prof:
     #     with record_function("forward pass"):
     for batch in loader:
-        
         # move what we need to device
         x = batch.x.to(device)
         edge_index = batch.edge_index.to(device)
         edge_attr = batch.edge_attr.to(device)
         batch_label = batch.batch.to(device)
+
+        
+        ic(x.shape)
+        ic(edge_index.shape)
+        ic(edge_attr.shape)
+        ic(batch_label.shape)
+        # prune graphs
+        edge_index, edge_attr = prune_graph(x, edge_index, edge_attr, batch_label, m_nearest_nodes=3)
         
         out = decoder(
             x=x,
