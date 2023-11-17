@@ -41,18 +41,10 @@ def main():
 
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
-        graph = get_3D_graph(
-            syndrome_3D=syndrome, target=flip, power=power, m_nearest_nodes=5
+        x, edge_index, edge_attr, y = get_3D_graph(
+            syndrome_3D=syndrome, target=flip, power=power, m_nearest_nodes=3
         )
-
-        graphs.append(
-            Data(
-                x=torch.from_numpy(graph[0]),
-                edge_index=torch.from_numpy(graph[1]),
-                edge_attr=torch.from_numpy(graph[2]),
-                y=torch.from_numpy(graph[3]),
-            )
-        )
+        graphs.append(Data(x, edge_index, edge_attr, y))
     loader = DataLoader(graphs, batch_size=batch_size)
 
     # load model
@@ -76,17 +68,17 @@ def main():
             edge_attr = batch.edge_attr.to(device)
             batch_label = batch.batch.to(device)
             target = batch.y.to(device).int()
-            
+
             out = model(
                 x=x,
                 edge_index=edge_index,
                 edge_attr=edge_attr,
                 batch=batch_label,
             )
-            
+
             prediction = (sigmoid(out.detach()) > 0.5).long()
             correct_preds += int((prediction == target).sum())
-    
+
     accuracy = correct_preds / n_graphs
     print(f"We have an accuracy of {accuracy:.2f}.")
 
