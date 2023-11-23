@@ -66,23 +66,39 @@ def plot_weights(
 
 def quantize_model_layers(
     model: nn.Module,
-    scale: torch.Tensor | float,
-    zero_pt: torch.Tensor | int,
     bit_width: int,
+    scale: torch.Tensor | float = None,
+    zero_pt: torch.Tensor | int = None,
     signed: bool = True,
     layer_index: int = None,
+    quantile: float = 0.005
 ) -> list[str]:
     weights: OrderedDict = model.state_dict()
 
     keys = []
     if layer_index is not None:
         key = list(model.state_dict())[layer_index]
+        layer_weight = weights[key]
+        
+        if scale is None:
+            lower_bound = torch.quantile(layer_weight, quantile)
+            upper_bound = torch.quantile(layer_weight, 1 - quantile)
+            scale = get_scale(lower_bound, upper_bound, bit_width)
+            zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width)
+        
         weights[key] = quantize_tensor(weights[key], scale, zero_pt, bit_width, signed)
 
         model.load_state_dict(weights)
         keys.append(key)
     else:
         for key, tensor in weights.items():
+            
+            if scale is None:
+                lower_bound = torch.quantile(tensor, quantile)
+                upper_bound = torch.quantile(tensor, 1 - quantile)
+                scale = get_scale(lower_bound, upper_bound, bit_width)
+                zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width)
+            
             weights[key] = quantize_tensor(tensor, scale, zero_pt, bit_width, signed)
             model.load_state_dict(weights)
             keys.append(key)
