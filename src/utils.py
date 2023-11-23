@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch_geometric.loader import DataLoader
 import numpy as np
 from collections import OrderedDict
 import matplotlib.pyplot as plt
@@ -26,6 +27,7 @@ def plot_weights(
 ) -> (plt.figure, plt.figure):
     graph_dict = {"lin_rel.weight": 0, "lin_rel.bias": 1, "lin_root.weight": 2}
     dense_dict = {"weight": 0, "bias": 1}
+
     graph_fig, graph_ax = plt.subplots(
         n_graph_layers, 3, figsize=(4 * 3, 4 * n_graph_layers)
     )
@@ -61,8 +63,58 @@ def plot_weights(
 
     return graph_fig, dense_fig
 
+
+def quantize_model_layers(
+    model: nn.Module,
+    scale: torch.Tensor | float,
+    zero_pt: torch.Tensor | int,
+    bit_width: int,
+    signed: bool = True,
+    layer_index: int = None,
+) -> list[str]:
+    weights: OrderedDict = model.state_dict()
+
+    keys = []
+    if layer_index is not None:
+        key = list(model.state_dict())[layer_index]
+        weights[key] = quantize_tensor(weights[key], scale, zero_pt, bit_width, signed)
+
+        model.load_state_dict(weights)
+        keys.append(key)
+    else:
+        for key, tensor in weights.items():
+            weights[key] = quantize_tensor(tensor, scale, zero_pt, bit_width, signed)
+            model.load_state_dict(weights)
+            keys.append(key)
+
+    return keys
+
+
+def dequantize_model_layers(
+    model: nn.Module,
+    scale: torch.Tensor | float,
+    zero_pt: torch.Tensor | int,
+    layer_index: int = None,
+) -> list[str]:
+    weights: OrderedDict = model.state_dict()
+
+    keys = []
+    if layer_index is not None:
+        key = list(model.state_dict())[layer_index]
+        weights[key] = dequantize_tensor(weights[key], scale, zero_pt)
+
+        model.load_state_dict(weights)
+        keys.append(key)
+    else:
+        for key, tensor in weights.items():
+            weights[key] = dequantize_tensor(tensor, scale, zero_pt)
+            model.load_state_dict(weights)
+            keys.append(key)
+
+    return keys
+
+
 def get_number_of_model_layers(module: nn.Module):
-    
     sum = 0
     for child in module.children():
         if isinstance(child, nn.modules.container.ModuleList):
@@ -72,6 +124,7 @@ def get_number_of_model_layers(module: nn.Module):
             sum += 1
     return sum
 
+
 def quantize_tensor(
     r: torch.Tensor,
     scale: torch.Tensor | float,
@@ -80,7 +133,6 @@ def quantize_tensor(
     signed: bool = True,
 ) -> torch.Tensor:
     if signed:
-
         return torch.clamp(
             torch.round(r / scale + zero_point),
             -(2 ** (bit_width - 1)),
@@ -90,15 +142,12 @@ def quantize_tensor(
         return torch.clamp(torch.round(r / scale + zero_point), 0, 2**bit_width - 1)
 
 
-
 def dequantize_tensor(
     q: torch.Tensor,
     scale: torch.Tensor | float,
     zero_point: torch.Tensor | int,
 ) -> torch.Tensor:
-
     return (scale * (q - zero_point)).float()
-
 
 
 def get_scale(
@@ -106,9 +155,7 @@ def get_scale(
     beta: torch.Tensor | float,
     bit_width: int = 8,
 ) -> torch.Tensor | float:
-
     return (beta - alpha) / (2**bit_width - 1)
-
 
 
 def get_zero_pt(
@@ -116,7 +163,38 @@ def get_zero_pt(
     beta: torch.Tensor | float,
     bit_width: int = 8,
 ) -> torch.Tensor | int:
-
     return torch.round(
         (2**bit_width * (alpha + beta) - 2 * beta) / (2 * (alpha - beta))
     )
+
+
+def run_inference(
+    model: nn.Module,
+    loader: DataLoader,
+    n_graphs: int,
+) -> float:
+    sigmoid = nn.Sigmoid()
+    correct_preds = 0
+
+    # loop over batches
+    with torch.no_grad():
+        for batch in loader:
+            # unzip data
+            x = batch.x
+            edge_index = batch.edge_index
+            edge_attr = batch.edge_attr
+            batch_label = batch.batch
+
+            out = model(
+                x,
+                edge_index,
+                edge_attr,
+                batch_label,
+            )
+
+            prediction = (sigmoid(out.detach()) > 0.5).long()
+            target = batch.y.int()
+            correct_preds += int((prediction == target).sum())
+
+    accuracy = correct_preds / n_graphs
+    return accuracy
