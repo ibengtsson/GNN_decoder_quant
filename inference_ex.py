@@ -8,15 +8,17 @@ from torch_geometric.loader import DataLoader
 from src.gnn_models import GNN_7
 from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
+from src.utils import match_and_load_state_dict
 from pathlib import Path
-
+import wandb
 
 def main():
+    # initialise wandb
+    wandb.init(project="quantum_decoder")
     # command line parsing
     parser = argparse.ArgumentParser(description="Choose model to load.")
     parser.add_argument("-f", "--file", required=True)
     parser.add_argument("-d", "--device", required=False)
-    parser.add_argument("-q", "--quantize", required=False, action="store_true")
 
     args = parser.parse_args()
 
@@ -58,53 +60,27 @@ def main():
     loader = DataLoader(graphs, batch_size=batch_size)
 
     model = GNN_7().to(device)
-    model.load_state_dict(model_data["model"])
+    model = match_and_load_state_dict(model, model_data["model"])
     model.eval()
 
-    # quantize model
-    if args.quantize:
-        model.qconfig = tq.get_default_qconfig("x86")
-        model_prepared = tq.prepare(model)
-        
-        # calibrate
-        batch = next(iter(loader))
-        x = batch.x
-        edge_index = batch.edge_index
-        edge_attr = batch.edge_attr
-        batch_label = batch.batch
-        target = batch.y
-        model_prepared(x, edge_index, edge_attr, batch_label)
-        
-        # convert
-        model_int8 = tq.convert(model_prepared)
-        
-
+    wandb.watch(model)
     sigmoid = nn.Sigmoid()
     correct_preds = 0
     # run inference on simulated data
     with torch.no_grad():
         for batch in loader:
+            x = batch.x.to(device)
+            edge_index = batch.edge_index.to(device)
+            edge_attr = batch.edge_attr.to(device)
+            batch_label = batch.batch.to(device)
+            target = batch.y.to(device).int()
 
-            if args.quantize:
-                x = torch.quantize_per_tensor(batch.x.to(device), 0.1, 8, torch.quint8)
-                edge_index = batch.edge_index.to(device)
-                edge_attr = torch.quantize_per_tensor(batch.edge_attr.to(device), 0.1, 8, torch.quint8)
-                batch_label = batch.batch.to(device)
-                
-                out = model_int8(
-                    x=x,
-                    edge_index=edge_index,
-                    edge_attr=edge_attr,
-                    batch=batch_label,
-                )
-                out = torch.dequantize(out)
-            else:  
-                x = batch.x.to(device)
-                edge_index = batch.edge_index.to(device)
-                edge_attr = batch.edge_attr.to(device)
-                batch_label = batch.batch.to(device)
-                target = batch.y.to(device).int()
-                
+            out = model(
+                x,
+                edge_index,
+                edge_attr,
+                batch_label,
+            )
             prediction = (sigmoid(out.detach()) > 0.5).long()
             correct_preds += int((prediction == target).sum())
 
