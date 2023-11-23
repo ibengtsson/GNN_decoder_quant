@@ -44,7 +44,7 @@ class GNN_7(torch.nn.Module):
         # Output later
         self.output_layer = Linear(hidden_channels_MLP[-1], num_classes)
 
-    def forward(self, x, edge_index, edge_attr, batch, fix_pt=True):
+    def forward(self, x, edge_index, edge_attr, batch, fix_pt=False):
         
         #  node embeddings
         for layer in self.graph_layers:
