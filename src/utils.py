@@ -5,7 +5,7 @@ import numpy as np
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 import re
-
+from tqdm import tqdm
 
 def match_and_load_state_dict(
     model: nn.Module,
@@ -19,6 +19,14 @@ def match_and_load_state_dict(
     model.load_state_dict(new_dict)
     return model
 
+def get_all_weights(model: nn.Module) -> np.ndarray:
+    
+    weights: OrderedDict = model.state_dict()
+    all_weights = []
+    for weight in weights.values():
+        all_weights.append(weight.numpy().flatten())
+    
+    return np.concatenate(all_weights)
 
 def plot_weights(
     n_graph_layers: int,
@@ -36,21 +44,24 @@ def plot_weights(
     )
 
     for key, weight in weights.items():
-        index = int(re.findall(r"\d+", key)[0])
+        if "output" in key:
+            index = 3
+        else:
+            index = int(re.findall(r"\d+", key)[0])
         data = weight.numpy().flatten()
         data_sz = data.shape[0]
 
         if "graph" in key:
             split_key = key.split(sep=".")
             plot_key = split_key[-2] + "." + split_key[-1]
-            ax = graph_ax[index - 1][graph_dict[plot_key]]
+            ax = graph_ax[index][graph_dict[plot_key]]
             ax.hist(data, 50)
             ax.set_title(f"GraphConv {index}: {plot_key} ({data_sz} parameters)")
 
         else:
             split_key = key.split(sep=".")
             plot_key = split_key[-1]
-            ax = dense_ax[index - 1][dense_dict[plot_key]]
+            ax = dense_ax[index][dense_dict[plot_key]]
             ax.hist(weight.numpy().flatten(), 50)
             ax.set_title(f"Linear {index}: {plot_key} ({data_sz} parameters)")
 
@@ -66,44 +77,60 @@ def plot_weights(
 
 def quantize_model_layers(
     model: nn.Module,
-    bit_width: int,
+    bit_width: np.int64,
+    same_quantization: bool = False,
     scale: torch.Tensor | float = None,
     zero_pt: torch.Tensor | int = None,
     signed: bool = True,
     layer_index: int = None,
-    quantile: float = 0.005
-) -> list[str]:
+    quantile: float = 0.001,
+) -> tuple[list[str], float, int]:
     weights: OrderedDict = model.state_dict()
 
     keys = []
     if layer_index is not None:
         key = list(model.state_dict())[layer_index]
         layer_weight = weights[key]
-        
-        if scale is None:
+
+        if not same_quantization:
             lower_bound = torch.quantile(layer_weight, quantile)
             upper_bound = torch.quantile(layer_weight, 1 - quantile)
-            scale = get_scale(lower_bound, upper_bound, bit_width)
-            zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width)
-        
-        weights[key] = quantize_tensor(weights[key], scale, zero_pt, bit_width, signed)
+            scale = get_scale(lower_bound, upper_bound, bit_width=bit_width)
+            zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width=bit_width)
+
+        weights[key] = quantize_tensor(
+            weights[key],
+            scale=scale,
+            zero_point=zero_pt,
+            bit_width=bit_width,
+            signed=signed,
+        )
 
         model.load_state_dict(weights)
         keys.append(key)
+
     else:
         for key, tensor in weights.items():
-            
-            if scale is None:
+            if not same_quantization:
                 lower_bound = torch.quantile(tensor, quantile)
                 upper_bound = torch.quantile(tensor, 1 - quantile)
-                scale = get_scale(lower_bound, upper_bound, bit_width)
-                zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width)
-            
-            weights[key] = quantize_tensor(tensor, scale, zero_pt, bit_width, signed)
+                if lower_bound == upper_bound:
+                    break
+
+                scale = get_scale(lower_bound, upper_bound, bit_width=bit_width)
+                zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width=bit_width)
+                
+            weights[key] = quantize_tensor(
+                tensor,
+                scale=scale,
+                zero_point=zero_pt,
+                bit_width=bit_width,
+                signed=signed,
+            )
             model.load_state_dict(weights)
             keys.append(key)
 
-    return keys
+    return keys, scale, zero_pt
 
 
 def dequantize_model_layers(
@@ -145,7 +172,7 @@ def quantize_tensor(
     r: torch.Tensor,
     scale: torch.Tensor | float,
     zero_point: torch.Tensor | int,
-    bit_width: int = 8,
+    bit_width: np.int64 = 8,
     signed: bool = True,
 ) -> torch.Tensor:
     if signed:
@@ -169,37 +196,48 @@ def dequantize_tensor(
 def get_scale(
     alpha: torch.Tensor | float,
     beta: torch.Tensor | float,
-    bit_width: int = 8,
+    bit_width: np.int64 = 8,
 ) -> torch.Tensor | float:
+
     return (beta - alpha) / (2**bit_width - 1)
 
 
 def get_zero_pt(
     alpha: torch.Tensor | float,
     beta: torch.Tensor | float,
-    bit_width: int = 8,
+    bit_width: np.int64 = 8,
+    signed: bool = True,
 ) -> torch.Tensor | int:
-    return torch.round(
-        (2**bit_width * (alpha + beta) - 2 * beta) / (2 * (alpha - beta))
-    )
+    
+    if signed:
+        return torch.round(
+            (2**bit_width * (alpha + beta) - 2 * beta) / (2 * (alpha - beta))
+        )
+    else:
+        return torch.round(
+            (-alpha * 2**bit_width) / (beta - alpha)
+        )
+        
 
 
 def run_inference(
     model: nn.Module,
     loader: DataLoader,
     n_graphs: int,
+    n_trivial_preds: int,
+    device: torch.device = torch.device("cpu")
 ) -> float:
     sigmoid = nn.Sigmoid()
     correct_preds = 0
 
     # loop over batches
     with torch.no_grad():
-        for batch in loader:
+        for batch in tqdm(loader):
             # unzip data
-            x = batch.x
-            edge_index = batch.edge_index
-            edge_attr = batch.edge_attr
-            batch_label = batch.batch
+            x = batch.x.to(device)
+            edge_index = batch.edge_index.to(device)
+            edge_attr = batch.edge_attr.to(device)
+            batch_label = batch.batch.to(device)
 
             out = model(
                 x,
@@ -212,5 +250,5 @@ def run_inference(
             target = batch.y.int()
             correct_preds += int((prediction == target).sum())
 
-    accuracy = correct_preds / n_graphs
-    return accuracy
+    accuracy = (n_graphs - correct_preds - n_trivial_preds) / n_graphs
+    return accuracy, correct_preds

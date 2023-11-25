@@ -10,11 +10,12 @@ from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
 from src.utils import match_and_load_state_dict
 from pathlib import Path
-import wandb
+
+from src.GNN_Decoder import GNN_Decoder, generate_batch
 
 def main():
     # initialise wandb
-    wandb.init(project="quantum_decoder")
+    # wandb.init(project="quantum_decoder")
     # command line parsing
     parser = argparse.ArgumentParser(description="Choose model to load.")
     parser.add_argument("-f", "--file", required=True)
@@ -35,35 +36,50 @@ def main():
         raise FileNotFoundError("The file was not found!")
 
     # settings
-    n_graphs = 5000
+    n_graphs = 4000
     seed = 11
     p = 1e-3
-    batch_size = n_graphs
+    batch_size = 4000
     power = 1
 
     # read code distance and number of repetitions from file name
     file_name = model_path.name
     splits = file_name.split("_")
     code_sz = int(splits[0][1])
+    
+    # should this be -1 or not???
     reps = int(splits[3].split(".")[0])
-
+    
     sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
+    # syndromes, flips, n_trivial = sim.generate_syndromes(n_graphs)
+    
+    buffer, n_trivial = sim.generate_batch(5, 1)
 
-    syndromes, flips = sim.generate_syndromes(n_graphs)
-
-    graphs = []
-    for syndrome, flip in zip(syndromes, flips):
-        x, edge_index, edge_attr, y = get_3D_graph(
-            syndrome_3D=syndrome, target=flip, power=power, m_nearest_nodes=3
+    batch = []
+    for i in range(len(buffer)):
+        X = buffer[i][0].to(device)
+        edge_index = buffer[i][1].to(device)
+        edge_attr = buffer[i][2].to(device)
+        y = buffer[i][3].to(device)
+        batch.append(
+            Data(x=X, edge_index=edge_index, edge_attr=edge_attr, y=y)
         )
-        graphs.append(Data(x, edge_index, edge_attr, y))
-    loader = DataLoader(graphs, batch_size=batch_size)
+
+    loader = DataLoader(batch, batch_size=batch_size)
+    
+    # graphs = []
+    # for syndrome, flip in zip(syndromes, flips):
+    #     x, edge_index, edge_attr, y = get_3D_graph(
+    #         syndrome_3D=syndrome, target=flip, power=power, m_nearest_nodes=3
+    #     )
+    #     graphs.append(Data(x, edge_index, edge_attr, y))
+    # loader = DataLoader(graphs, batch_size=batch_size)
 
     model = GNN_7().to(device)
-    model = match_and_load_state_dict(model, model_data["model"])
+    # model = match_and_load_state_dict(model, model_data["model"])
+    model.load_state_dict(model_data["model"])
     model.eval()
 
-    wandb.watch(model)
     sigmoid = nn.Sigmoid()
     correct_preds = 0
     # run inference on simulated data
@@ -74,18 +90,19 @@ def main():
             edge_attr = batch.edge_attr.to(device)
             batch_label = batch.batch.to(device)
             target = batch.y.to(device).int()
-
+            
             out = model(
                 x,
                 edge_index,
                 edge_attr,
                 batch_label,
             )
-            prediction = (sigmoid(out.detach()) > 0.5).long()
+            
+            prediction = sigmoid(out.detach()).round().to(torch.int32)
             correct_preds += int((prediction == target).sum())
 
-    accuracy = correct_preds / n_graphs
-    print(f"We have an accuracy of {accuracy:.2f}.")
+    failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
+    print(f"We have a logical failure rate of {failure_rate}.")
 
     return 0
 

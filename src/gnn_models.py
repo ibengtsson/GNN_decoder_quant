@@ -65,6 +65,66 @@ class GNN_7(torch.nn.Module):
         x = self.output_layer(x)
         
         return x
+  
+    #     # num_classes is 1 for each head
+    #     super(GNN_7, self).__init__()
+    #     if manual_seed is not None:
+    #         torch.manual_seed(manual_seed)
+    #     # GCN layers
+    #     self.graph1 = GraphConv(num_node_features, hidden_channels_GCN[0])
+    #     self.graph2 = GraphConv(hidden_channels_GCN[0], hidden_channels_GCN[1])
+    #     self.graph3 = GraphConv(hidden_channels_GCN[1], hidden_channels_GCN[2])
+    #     self.graph4 = GraphConv(hidden_channels_GCN[2], hidden_channels_GCN[3])
+    #     self.graph5 = GraphConv(hidden_channels_GCN[3], hidden_channels_GCN[4])
+    #     self.graph6 = GraphConv(hidden_channels_GCN[4], hidden_channels_GCN[5])
+    #     self.graph7 = GraphConv(hidden_channels_GCN[5], hidden_channels_GCN[6])
+    #     # Layers for graph embedding classifier
+    #     self.lin1 = Linear(hidden_channels_GCN[6], hidden_channels_MLP[0])
+    #     self.lin2 = Linear(hidden_channels_MLP[0], hidden_channels_MLP[1])
+    #     self.lin3 = Linear(hidden_channels_MLP[1], hidden_channels_MLP[2])
+    #     self.lin4 = Linear(hidden_channels_MLP[2], num_classes)
+
+    #     # Reset parameters on initialization of model instance
+    #     self.graph1.reset_parameters()
+    #     self.graph2.reset_parameters()
+    #     self.graph3.reset_parameters()
+    #     self.graph4.reset_parameters()
+    #     self.graph5.reset_parameters()
+    #     self.graph6.reset_parameters()
+    #     self.graph7.reset_parameters()
+    #     self.lin1.reset_parameters()
+    #     self.lin2.reset_parameters()
+    #     self.lin3.reset_parameters()
+    #     self.lin4.reset_parameters()
+
+    # def forward(self, x, edge_index, edge_attr, batch):
+    #     # Obtain node embeddings
+    #     x = self.graph1(x, edge_index, edge_weight=edge_attr)
+    #     x = x.relu()
+    #     x = self.graph2(x, edge_index, edge_weight=edge_attr)
+    #     x = x.relu()
+    #     x = self.graph3(x, edge_index, edge_weight=edge_attr)
+    #     x = x.relu()
+    #     x = self.graph4(x, edge_index, edge_weight=edge_attr)
+    #     x = x.relu()
+    #     x = self.graph5(x, edge_index, edge_weight=edge_attr)
+    #     x = x.relu()
+    #     x = self.graph6(x, edge_index, edge_weight=edge_attr)
+    #     x = x.relu()
+    #     x = self.graph7(x, edge_index, edge_weight=edge_attr)
+    #     x = x.relu()
+    #     # obtain graph embedding
+    #     x = global_mean_pool(x, batch)
+    #     # Apply X(Z) classifier
+    #     X = self.lin1(x)
+    #     X = X.relu()
+    #     X = self.lin2(X)
+    #     X = X.relu()
+    #     X = self.lin3(X)
+    #     X = X.relu()
+    #     X = self.lin4(X)
+
+    #     return X
         
 class GNN_7_DenseConv(torch.nn.Module):
     """
