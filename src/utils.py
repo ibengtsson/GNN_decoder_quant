@@ -79,8 +79,8 @@ def quantize_model_layers(
     model: nn.Module,
     bit_width: np.int64,
     same_quantization: bool = False,
-    scale: torch.Tensor | float = None,
-    zero_pt: torch.Tensor | int = None,
+    scale: torch.Tensor = None,
+    zero_pt: torch.Tensor = None,
     signed: bool = True,
     layer_index: int = None,
     quantile: float = 0.001,
@@ -135,8 +135,8 @@ def quantize_model_layers(
 
 def dequantize_model_layers(
     model: nn.Module,
-    scale: torch.Tensor | float,
-    zero_pt: torch.Tensor | int,
+    scale: torch.Tensor,
+    zero_pt: torch.Tensor,
     layer_index: int = None,
 ) -> list[str]:
     weights: OrderedDict = model.state_dict()
@@ -170,8 +170,8 @@ def get_number_of_model_layers(module: nn.Module):
 
 def quantize_tensor(
     r: torch.Tensor,
-    scale: torch.Tensor | float,
-    zero_point: torch.Tensor | int,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
     bit_width: np.int64 = 8,
     signed: bool = True,
 ) -> torch.Tensor:
@@ -187,27 +187,27 @@ def quantize_tensor(
 
 def dequantize_tensor(
     q: torch.Tensor,
-    scale: torch.Tensor | float,
-    zero_point: torch.Tensor | int,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
 ) -> torch.Tensor:
     return (scale * (q - zero_point)).float()
 
 
 def get_scale(
-    alpha: torch.Tensor | float,
-    beta: torch.Tensor | float,
+    alpha: torch.Tensor,
+    beta: torch.Tensor,
     bit_width: np.int64 = 8,
-) -> torch.Tensor | float:
+) -> torch.Tensor:
 
     return (beta - alpha) / (2**bit_width - 1)
 
 
 def get_zero_pt(
-    alpha: torch.Tensor | float,
-    beta: torch.Tensor | float,
+    alpha: torch.Tensor,
+    beta: torch.Tensor,
     bit_width: np.int64 = 8,
     signed: bool = True,
-) -> torch.Tensor | int:
+) -> torch.Tensor:
     
     if signed:
         return torch.round(
