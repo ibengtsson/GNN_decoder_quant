@@ -47,7 +47,7 @@ def main():
     reps = int(splits[3].split(".")[0])
     
     sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
-    syndromes, flips, n_trivial = sim.generate_syndromes(n_graphs)
+    syndromes, flips, n_trivial = sim.generate_syndromes()
     
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
