@@ -34,7 +34,6 @@ def main():
 
     # settings
     n_graphs = int(1e6)
-    n_graphs = 1000
     seed = 11
     p = 1e-3
     batch_size = 12000 if "cuda" in device.type else 4000
