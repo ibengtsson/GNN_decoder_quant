@@ -59,13 +59,13 @@ if __name__ == '__main__':
     num_node_features = 5
     learning_rate = 1e-3
     training_error_rate = 1e-3
-    m_nearest_nodes = 5
+    m_nearest_nodes = 3
     code_size = 7
     repetitions = 11
     num_iterations = 0
     buffer_size = int(1e5)
     replacements_per_iteration = int(1e3)
-    test_size = int(1e5)
+    test_size = int(1e3)
     batch_size = 12000
     benchmark = False
     validation = False
@@ -154,11 +154,13 @@ if __name__ == '__main__':
 
     print('\n==== TESTING ====')
     rates = [0.001, 0.002, 0.003]
+    rates = [0.001]
     for r in rates:
         acc = decoder.train_with_data_buffer(
             code_size = code_size,
             repetitions = repetitions,
             error_rate = r,
             train = False,
-            test_size = test_size)
+            test_size = test_size,
+            batch_size=12000)
         print(f'Test accuracy: {acc}, Error rate: {r}')
