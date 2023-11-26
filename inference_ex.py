@@ -33,7 +33,7 @@ def main():
         raise FileNotFoundError("The file was not found!")
 
     # settings
-    n_graphs = int(1e6)
+    n_graphs = int(1e5)
     seed = 11
     p = 1e-3
     batch_size = 12000 if "cuda" in device.type else 4000
@@ -63,6 +63,7 @@ def main():
 
     sigmoid = nn.Sigmoid()
     correct_preds = 0
+    n_data_instances = 0
     # run inference on simulated data
     with torch.no_grad():
         for batch in tqdm(loader):
@@ -72,6 +73,7 @@ def main():
             batch_label = batch.batch.to(device)
             target = batch.y.to(device).int()
             
+            n_data_instances += torch.unique(batch_label).shape[0]
             out = model(
                 x,
                 edge_index,
@@ -83,6 +85,9 @@ def main():
             correct_preds += int((prediction == target).sum())
 
     failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
+    print(f"{n_data_instances=}")
+    print(f"{n_trivial=}")
+    print(f"{n_data_instances + n_trivial}")
     print(f"We have a logical failure rate of {failure_rate}.")
 
     return 0
