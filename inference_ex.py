@@ -44,7 +44,7 @@ def main():
     code_sz = int(splits[0][1])
     
     # should this be -1 or not???
-    reps = int(splits[3].split(".")[0])
+    reps = int(splits[3].split(".")[0]) - 1
     
     sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
     syndromes, flips, n_trivial = sim.generate_syndromes()
@@ -81,13 +81,13 @@ def main():
                 batch_label,
             )
             
-            prediction = sigmoid(out.detach()).round().to(torch.int32)
+            prediction = sigmoid(out.detach()).round().long()
             correct_preds += int((prediction == target).sum())
 
     failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
     print(f"{n_data_instances=}")
     print(f"{n_trivial=}")
-    print(f"{n_data_instances + n_trivial}")
+    print(f"{(n_data_instances + n_trivial)=}")
     print(f"We have a logical failure rate of {failure_rate}.")
 
     return 0
