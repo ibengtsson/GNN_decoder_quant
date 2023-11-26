@@ -1,7 +1,6 @@
 """Package with functions for creating graph representations of syndromes."""
 import numpy as np
 import torch
-from icecream import ic
 
 
 def get_node_list_3D(syndrome_3D):
@@ -60,12 +59,7 @@ def get_node_feature_matrix(defects, defect_indices_triple, num_node_features=No
 
 
 # Function for creating a single graph as a PyG Data object
-def get_3D_graph(
-    syndrome_3D,
-    target=None,
-    m_nearest_nodes=None,
-    power=None,
-):
+def get_3D_graph(syndrome_3D, target=None, m_nearest_nodes=None, power=None):
     """
     Form a graph from a repeated syndrome measurement where a node is added,
     each time the syndrome changes. The node features are 5D.
@@ -91,43 +85,44 @@ def get_3D_graph(
     t_dist = np.abs(t_coord.T - t_coord)
 
     # inverse square of the supremum norm between two nodes
-    adj = np.maximum.reduce([y_dist, x_dist, t_dist])
+    Adj = np.maximum.reduce([y_dist, x_dist, t_dist])
     # set diagonal elements to nonzero to circumvent division by zero
-    np.fill_diagonal(adj, 1)
+    np.fill_diagonal(Adj, 1)
     # scale the edge weights
-    adj = 1.0 / adj**power
+    Adj = 1.0 / Adj**power
     # set diagonal elements to zero to exclude self loops
-    np.fill_diagonal(adj, 0)
-
-    if target is not None:
-        # does this really need shape (1, 1)?
-        y = target.reshape(1, 1)
-    else:
-        y = None
+    np.fill_diagonal(Adj, 0)
 
     # remove all but the m_nearest neighbours
     if m_nearest_nodes is not None:
-        for ix, row in enumerate(adj.T):
+        for ix, row in enumerate(Adj.T):
             # Do not remove edges if a node has (degree <= m)
             if np.count_nonzero(row) <= m_nearest_nodes:
                 continue
             # Get indices of all nodes that are not the m nearest
             # Remove these edges by setting elements to 0 in adjacency matrix
-            adj.T[
-                ix, np.argpartition(row, -m_nearest_nodes)[:-m_nearest_nodes]
-            ] = 0.0
+            Adj.T[ix, np.argpartition(row, -m_nearest_nodes)[:-m_nearest_nodes]] = 0.0
 
-    adj = np.maximum(adj, adj.T)  # Make sure for each edge i->j there is edge j->i
-    n_edges = np.count_nonzero(adj)  # Get number of edges
+    Adj = np.maximum(Adj, Adj.T)  # Make sure for each edge i->j there is edge j->i
+    n_edges = np.count_nonzero(Adj)  # Get number of edges
 
     # get the edge indices:
-    edge_index = np.nonzero(adj)
-    edge_attr = adj[edge_index].reshape(n_edges, 1)
+    edge_index = np.nonzero(Adj)
+    edge_attr = Adj[edge_index].reshape(n_edges, 1)
     edge_index = np.array(edge_index)
 
-    return (
+    if target is not None:
+        y = target.reshape(1, 1)
+    else:
+        y = None
+
+    return [
         torch.from_numpy(X.astype(np.float32)),
-        torch.from_numpy(edge_index.astype(np.int64)),
+        torch.from_numpy(
+            edge_index.astype(
+                np.int64,
+            )
+        ),
         torch.from_numpy(edge_attr.astype(np.float32)),
         torch.from_numpy(y.astype(np.float32)),
-    )
+    ]
