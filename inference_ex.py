@@ -34,7 +34,7 @@ def main():
 
     # settings
     n_graphs = int(1e5)
-    seed = 11
+    seed = None
     p = 1e-3
     batch_size = 12000 if "cuda" in device.type else 4000
     
@@ -44,7 +44,7 @@ def main():
     code_sz = int(splits[0][1])
     
     # should this be -1 or not???
-    reps = int(splits[3].split(".")[0]) - 1
+    reps = int(splits[3].split(".")[0])
     
     sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
     syndromes, flips, n_trivial = sim.generate_syndromes()
