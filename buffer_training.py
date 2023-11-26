@@ -160,6 +160,5 @@ if __name__ == '__main__':
             repetitions = repetitions,
             error_rate = r,
             train = False,
-            wandb_log = False,
             test_size = test_size)
         print(f'Test accuracy: {acc}, Error rate: {r}')
