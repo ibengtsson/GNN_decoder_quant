@@ -34,7 +34,7 @@ def main():
         raise FileNotFoundError("The file was not found!")
 
     # settings
-    n_graphs = int(1e5)
+    n_graphs = int(1e3)
     seed = None
     p = 1e-3
     batch_size = 12000 if "cuda" in device.type else 4000
@@ -59,7 +59,7 @@ def main():
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
         x, edge_index, edge_attr, y = get_3D_graph(
-            syndrome_3D=syndrome, target=flip, m_nearest_nodes=5
+            syndrome_3D=syndrome, target=flip, m_nearest_nodes=None
         )
         graphs.append(Data(x, edge_index, edge_attr, y))
     loader = DataLoader(graphs, batch_size=batch_size)

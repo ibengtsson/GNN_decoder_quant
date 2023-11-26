@@ -46,16 +46,11 @@ class QECCodeSim:
         # sums over the detectors to check if we have a parity change
         shots_w_flips = np.sum(stim_data, axis=1) != 0
         n_trivial_syndromes = np.invert(shots_w_flips).sum()
-        
+
         # save only data for measurements with non-empty syndromes
         # but count how many trival (identity) syndromes we have
         stabilizer_changes = stim_data[shots_w_flips, :]
         flips = observable_flips[shots_w_flips, 0]
-        
-        ######################################
-        # flips = observable_flips[shots_w_flips]
-        # WAS UINT8!
-        #######################################
 
         return stabilizer_changes, flips.astype(np.uint8), n_trivial_syndromes
 

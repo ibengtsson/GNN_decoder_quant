@@ -472,42 +472,6 @@ class GNN_Decoder:
 
             return correct_predictions, total_loss
 
-        def train_recurrent_nn_with_buffer(graph_list, shuffle=True):
-            """Trains the network with data from the buffer."""
-            assert (
-                batch_size % repetitions == 0
-            ), "Batch size must be divisible by repetitions!"
-
-            if shuffle:
-                graph_list = shuffle_buffer(graph_list, repetitions)
-
-            loader = DataLoader(graph_list, batch_size=batch_size)
-            total_loss = 0.0
-            correct_predictions = 0
-            model.train()
-            # tensor sizes:
-            # data.x            (number of nodes in sample * batch_size, 4)
-            # data.edge_index   (2, number of edge_indices in sample * batch_size)
-            # data.edge_attr    (number of edge_indices in sample * batch_size, 1)
-            # data.y            (batch_size, 2 for two-head 4 for one-head)
-            for data in loader:
-                optimizer.zero_grad()
-                data.batch = data.batch.to(device)
-                out = model(data.x, data.edge_index, data.edge_attr, data.batch)
-                # don't include the basis label as target:
-                target = data.y.to(int)
-
-                # print(out.shape, data.y.shape)
-                loss = criterion(out, data.y)
-
-                prediction = (sigmoid(out.detach()) > 0.5).to(device).long()
-                correct_predictions += int((prediction == target).sum().item())
-                loss.backward()
-                optimizer.step()
-                total_loss += loss.item() * data.num_graphs
-
-            return correct_predictions, total_loss
-
         def generate_test_batch(test_size):
             """Generates a test batch at one test error rate"""
             # Keep track of trivial syndromes
