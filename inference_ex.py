@@ -21,7 +21,7 @@ def main():
 
     model_path = Path(args.file)
     if args.device:
-        device = args.device
+        device = torch.device(args.device)
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
