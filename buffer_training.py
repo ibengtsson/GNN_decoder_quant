@@ -65,8 +65,8 @@ if __name__ == '__main__':
     num_iterations = 0
     buffer_size = int(1e5)
     replacements_per_iteration = int(1e3)
-    test_size = int(1e3)
-    batch_size = 12000
+    test_size = int(1e5)
+    batch_size = 10000
     benchmark = False
     validation = False
     
