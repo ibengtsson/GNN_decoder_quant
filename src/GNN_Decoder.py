@@ -15,8 +15,7 @@ from multiprocessing import Pool, cpu_count
 import gc
 import stim
 from src.graph_representation import get_3D_graph
-from src.gnn_models import RecurrentGNN
-
+from src.gnn_models import OLD_GNN_7
 
 class GNN_Decoder:
     def __init__(self, params=None):
@@ -31,7 +30,7 @@ class GNN_Decoder:
                 "manual_seed": 12345,
             },
             "graph": {"m_nearest_nodes": None, "num_node_features": 4, "power": 2},
-            "device": torch.device("cpu"),
+            "cuda": None,
             "silent": False,
             "save_path": "./",
             "save_prefix": None,
@@ -641,10 +640,7 @@ class GNN_Decoder:
                 fit_start = time.perf_counter()
             # forward pass:
             # check which training function to use (recurrent network has different shuffling)
-            if isinstance(self.model, RecurrentGNN):
-                train_function = train_recurrent_nn_with_buffer
-            else:
-                train_function = train_with_buffer
+            train_function = train_with_buffer
                 
             correct_count, total_iteration_loss = train_function(data_buffer)
             sample_count = len(data_buffer)
