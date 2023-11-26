@@ -220,19 +220,19 @@ def main():
     experiment = "weights"
 
     paths = [
-        Path("models\circuit_level_noise\d3\d3_d_t_11.pt"),
-        Path("models\circuit_level_noise\d5\d5_d_t_11.pt"),
-        Path("models\circuit_level_noise\d7\d7_d_t_11.pt"),
+        Path("models/circuit_level_noise/d3/d3_d_t_11.pt"),
+        Path("models/circuit_level_noise/d5/d5_d_t_11.pt"),
+        Path("models/circuit_level_noise/d7/d7_d_t_11.pt"),
     ]
 
-    paths = [Path("models\circuit_level_noise\d7\d7_d_t_11.pt")]
+    paths = [Path("models/circuit_level_noise/d7/d7_d_t_11.pt")]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    n_graphs = 1e8
+    n_graphs = int(1e3)
     batch_size = n_graphs if n_graphs < 5000 else 5000
     p = 1e-3
     max_bits = 1
     its = 1
-    seed = 11
+    seed = None
 
     # collect data for each code size
     data_per_code_sz = []
@@ -242,6 +242,7 @@ def main():
         # read code distance and number of repetitions from file name
         file_name = model_path.name
         splits = file_name.split("_")
+        print(splits[0][1])
         code_sz = int(splits[0][1])
         reps = int(splits[3].split(".")[0]) - 2
     
@@ -261,7 +262,6 @@ def main():
                 its,
                 n_graphs,
                 batch_size,
-                seed=seed,
                 device=device,
             )
 
