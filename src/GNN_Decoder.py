@@ -153,6 +153,7 @@ class GNN_Decoder:
     # Load weights from an input state dict
     def load_weights(self, state_dict):
         self.model.load_state_dict(state_dict)
+        print("Loaded weights")
 
     # Load optimizer from an input state dict
     def load_optimizer(self, state_dict):

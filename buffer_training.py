@@ -136,21 +136,21 @@ if __name__ == '__main__':
     
     # TRAIN
     print('\n==== TRAINING ====')
-    decoder.train_with_data_buffer(
-        code_size = code_size,
-        repetitions = repetitions,
-        error_rate = training_error_rate,
-        train = False,
-        save_to_file = False,
-        batch_size = batch_size,
-        learning_rate = learning_rate,
-        num_iterations = num_iterations,
-        benchmark = benchmark,
-        buffer_size = buffer_size,
-        replacements_per_iteration = replacements_per_iteration,
-        test_size = test_size,
-        learning_scheduler = False,
-        validation = validation)
+    # decoder.train_with_data_buffer(
+    #     code_size = code_size,
+    #     repetitions = repetitions,
+    #     error_rate = training_error_rate,
+    #     train = False,
+    #     save_to_file = False,
+    #     batch_size = batch_size,
+    #     learning_rate = learning_rate,
+    #     num_iterations = num_iterations,
+    #     benchmark = benchmark,
+    #     buffer_size = buffer_size,
+    #     replacements_per_iteration = replacements_per_iteration,
+    #     test_size = test_size,
+    #     learning_scheduler = False,
+    #     validation = validation)
 
     print('\n==== TESTING ====')
     rates = [0.001, 0.002, 0.003]
