@@ -71,33 +71,33 @@ def explore_weights(
         bit_widths = np.arange(1, max_bits + 1, dtype=np.int64)
         accuracies = []
         q_errors = []
-        # for bit_width in bit_widths:
-        #     model = GNN_7().to(device)
-        #     model.load_state_dict(float_model.state_dict())
-        #     scale = get_scale(lower_limit, upper_limit, bit_width)
-        #     zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+        for bit_width in bit_widths:
+            model = GNN_7().to(device)
+            model.load_state_dict(float_model.state_dict())
+            scale = get_scale(lower_limit, upper_limit, bit_width)
+            zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
 
-        #     quantized_layers, scale, zero_pt = quantize_model_layers(
-        #         model,
-        #         bit_width,
-        #         scale=scale,
-        #         zero_pt=zero_pt,
-        #         same_quantization=True,
-        #     )
+            quantized_layers, scale, zero_pt = quantize_model_layers(
+                model,
+                bit_width,
+                scale=scale,
+                zero_pt=zero_pt,
+                same_quantization=True,
+            )
 
-        #     dequantized_layers = dequantize_model_layers(model, scale, zero_pt)
-        #     dq_weights = get_all_weights(model)
+            dequantized_layers = dequantize_model_layers(model, scale, zero_pt)
+            dq_weights = get_all_weights(model)
 
-        #     q_error = np.linalg.norm(all_weights - dq_weights)
-        #     accuracy, n_correct_preds = run_inference(
-        #         model,
-        #         loader,
-        #         n_graphs,
-        #         n_trivial_preds,
-        #     )
+            q_error = np.linalg.norm(all_weights - dq_weights)
+            accuracy, n_correct_preds = run_inference(
+                model,
+                loader,
+                n_graphs,
+                n_trivial_preds,
+            )
 
-        #     q_errors.append(q_error)
-        #     accuracies.append(accuracy)
+            q_errors.append(q_error)
+            accuracies.append(accuracy)
 
         float_accuracy, n_float_correct_preds = run_inference(
             float_model,
@@ -225,10 +225,9 @@ def main():
         Path("models/circuit_level_noise/d7/d7_d_t_11.pt"),
     ]
 
-    paths = [Path("models/circuit_level_noise/d7/d7_d_t_11.pt")]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    n_graphs = int(1e3)
-    batch_size = n_graphs if n_graphs < 5000 else 5000
+    n_graphs = int(1e6)
+    batch_size = 16000 if "cuda" in device.type else 4000
     p = 1e-3
     max_bits = 1
     its = 1
@@ -244,7 +243,7 @@ def main():
         splits = file_name.split("_")
         print(splits[0][1])
         code_sz = int(splits[0][1])
-        reps = int(splits[3].split(".")[0]) - 2
+        reps = int(splits[3].split(".")[0])
     
         # initialise floating point model and extract weight statistics
         float_model = GNN_7().to(device)
