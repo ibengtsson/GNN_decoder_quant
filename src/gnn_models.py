@@ -89,7 +89,7 @@ class OLD_GNN_7(torch.nn.Module):
     ):
 
         # num_classes is 1 for each head
-        super(GNN_7, self).__init__()
+        super(OLD_GNN_7, self).__init__()
         if manual_seed is not None:
             torch.manual_seed(manual_seed)
         # GCN layers
