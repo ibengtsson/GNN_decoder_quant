@@ -59,9 +59,7 @@ if __name__ == '__main__':
     num_node_features = 5
     learning_rate = 1e-3
     training_error_rate = 1e-3
-    m_nearest_nodes = 3
-    code_size = 7
-    repetitions = 11
+    m_nearest_nodes = 5
     num_iterations = 0
     buffer_size = int(1e5)
     replacements_per_iteration = int(1e3)
@@ -109,8 +107,7 @@ if __name__ == '__main__':
     print('\n==== DECODER PARAMETERS ====')
     decoder = GNN_Decoder(GNN_params)
     print(decoder.params)
-    print(f'Code size: {code_size}\n')
-    print(f'Repetitions: {repetitions}\n')
+
     # print(f'Training error rate: {training_error_rate}\n')
 
     # LOAD MODEL AND TRAINING HISTORY FROM FILE
@@ -133,6 +130,13 @@ if __name__ == '__main__':
     loaded_attributes = torch.load(load_path, map_location=f'cuda:{current_device_id}')
     decoder.load_training_history(loaded_attributes)
     decoder.model.to(device)
+    
+    file_name = load_path.name
+    splits = file_name.split("_")
+    code_size = int(splits[0][1])
+    repetitions = int(splits[3].split(".")[0])
+    print(f'Code size: {code_size}\n')
+    print(f'Repetitions: {repetitions}\n')
     
     # TRAIN
     print('\n==== TRAINING ====')
