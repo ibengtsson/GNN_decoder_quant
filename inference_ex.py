@@ -91,7 +91,7 @@ def main():
             prediction = sigmoid(out.detach()).round().long()
             correct_preds += int((prediction == target).sum())
 
-    failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
+    failure_rate = (n_graphs - correct_preds - n_trivial) / float(n_graphs)
     print(f"{n_data_instances=}")
     print(f"{n_trivial=}")
     print(f"{(n_data_instances + n_trivial)=}")
