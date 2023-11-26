@@ -71,7 +71,7 @@ if __name__ == '__main__':
     
     GNN_params = {
         'model': {
-            'class': gnn.GNN_7,
+            'class': gnn.OLD_GNN_7,
             'num_classes': 1, # 1 output class for two-headed model
             'loss': criterion,
             'num_node_features': num_node_features,
