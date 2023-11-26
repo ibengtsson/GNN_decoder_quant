@@ -36,7 +36,7 @@ def main():
     # settings
     n_graphs = int(1e5)
     seed = None
-    p = 3e-3
+    p = 1e-3
     batch_size = 12000 if "cuda" in device.type else 4000
 
     # read code distance and number of repetitions from file name

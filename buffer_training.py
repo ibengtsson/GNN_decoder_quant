@@ -127,7 +127,7 @@ if __name__ == '__main__':
     #     decoder.model.to(device)
     
     from pathlib import Path
-    load_path = Path("models/circuit_level_noise/d7/d7_d_t_11.pt")
+    load_path = Path("models/circuit_level_noise/d3/d3_d_t_7.pt")
     device = torch.device('cuda')
     current_device_id = torch.cuda.current_device()
     loaded_attributes = torch.load(load_path, map_location=f'cuda:{current_device_id}')
