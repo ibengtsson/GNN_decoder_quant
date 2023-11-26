@@ -420,10 +420,15 @@ class GNN_Decoder:
             # convert list of numpy arrays to torch Data object containing torch GPU tensors
             torch_buffer = []
             for i in range(len(buffer)):
-                X = torch.from_numpy(buffer[i][0]).to(device)
-                edge_index = torch.from_numpy(buffer[i][1]).to(device)
-                edge_attr = torch.from_numpy(buffer[i][2]).to(device)
-                y = torch.from_numpy(buffer[i][3]).to(device)
+                # X = torch.from_numpy(buffer[i][0]).to(device)
+                # edge_index = torch.from_numpy(buffer[i][1]).to(device)
+                # edge_attr = torch.from_numpy(buffer[i][2]).to(device)
+                # y = torch.from_numpy(buffer[i][3]).to(device)
+                
+                X = buffer[i][0].to(device)
+                edge_index = buffer[i][1].to(device)
+                edge_attr = buffer[i][2].to(device)
+                y = buffer[i][3].to(device)
                 torch_buffer.append(
                     Data(x=X, edge_index=edge_index, edge_attr=edge_attr, y=y)
                 )
@@ -504,10 +509,15 @@ class GNN_Decoder:
             # convert list of numpy arrays to torch Data object containing torch GPU tensors
             test_batch = []
             for i in range(len(buffer)):
-                X = torch.from_numpy(buffer[i][0]).to(device)
-                edge_index = torch.from_numpy(buffer[i][1]).to(device)
-                edge_attr = torch.from_numpy(buffer[i][2]).to(device)
-                y = torch.from_numpy(buffer[i][3]).to(device)
+                # X = torch.from_numpy(buffer[i][0]).to(device)
+                # edge_index = torch.from_numpy(buffer[i][1]).to(device)
+                # edge_attr = torch.from_numpy(buffer[i][2]).to(device)
+                # y = torch.from_numpy(buffer[i][3]).to(device)
+                
+                X = buffer[i][0].to(device)
+                edge_index = buffer[i][1].to(device)
+                edge_attr = buffer[i][2].to(device)
+                y = buffer[i][3].to(device)
                 test_batch.append(
                     Data(x=X, edge_index=edge_index, edge_attr=edge_attr, y=y)
                 )
