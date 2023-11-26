@@ -64,8 +64,8 @@ class GNN_Decoder:
         except TypeError:
             print("!!!!!!Input model must be a valid GNN class!!!!!!")
 
-        if p["device"]:
-            device = p["device"]
+        if p["cuda"]:
+            device = p["cuda"]
             self.model = self.model.to(device)
         
         # Create lists to store results from consecutive training loops
