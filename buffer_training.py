@@ -83,6 +83,7 @@ if __name__ == '__main__':
             'm_nearest_nodes': m_nearest_nodes,
             'power': 1.0
         },
+        "cuda": True,
     }
     
     # GNN_params = {
