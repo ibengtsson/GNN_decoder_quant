@@ -10,6 +10,7 @@ from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
 from src.utils import match_and_load_state_dict
 from pathlib import Path
+from tqdm import tqdm
 
 def main():
     # command line parsing
@@ -32,7 +33,7 @@ def main():
         raise FileNotFoundError("The file was not found!")
 
     # settings
-    n_graphs = 4000
+    n_graphs = int(1e6)
     n_graphs = 1000
     seed = 11
     p = 1e-3
@@ -65,7 +66,7 @@ def main():
     correct_preds = 0
     # run inference on simulated data
     with torch.no_grad():
-        for batch in loader:
+        for batch in tqdm(loader):
             x = batch.x.to(device)
             edge_index = batch.edge_index.to(device)
             edge_attr = batch.edge_attr.to(device)
