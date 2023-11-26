@@ -12,6 +12,7 @@ from src.utils import match_and_load_state_dict
 from pathlib import Path
 from tqdm import tqdm
 
+
 def main():
     # command line parsing
     parser = argparse.ArgumentParser(description="Choose model to load.")
@@ -37,18 +38,25 @@ def main():
     seed = None
     p = 1e-3
     batch_size = 12000 if "cuda" in device.type else 4000
-    
+
     # read code distance and number of repetitions from file name
     file_name = model_path.name
     splits = file_name.split("_")
     code_sz = int(splits[0][1])
-    
+
     # should this be -1 or not???
     reps = int(splits[3].split(".")[0])
-    
-    sim = SurfaceCodeSim(reps, code_sz, p, n_shots=n_graphs, seed=seed)
+
+    sim = SurfaceCodeSim(
+        reps,
+        code_sz,
+        p,
+        n_shots=n_graphs,
+        seed=seed,
+        code_task="surface_code:rotated_memory_z",
+    )
     syndromes, flips, n_trivial = sim.generate_syndromes()
-    
+
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
         x, edge_index, edge_attr, y = get_3D_graph(
@@ -72,7 +80,7 @@ def main():
             edge_attr = batch.edge_attr.to(device)
             batch_label = batch.batch.to(device)
             target = batch.y.to(device).int()
-            
+
             n_data_instances += torch.unique(batch_label).shape[0]
             out = model(
                 x,
@@ -80,7 +88,7 @@ def main():
                 edge_attr,
                 batch_label,
             )
-            
+
             prediction = sigmoid(out.detach()).round().long()
             correct_preds += int((prediction == target).sum())
 
