@@ -6,6 +6,7 @@ from torch_geometric.loader import DataLoader
 import matplotlib.pyplot as plt
 from src.GNN_Decoder import GNN_Decoder 
 import src.gnn_models as gnn
+from src.gnn_models import OLD_GNN_7
 import stim
 
 if __name__ == '__main__':
@@ -57,7 +58,7 @@ if __name__ == '__main__':
     criterion = torch.nn.BCEWithLogitsLoss()
     num_node_features = 5
     learning_rate = 1e-3
-    training_error_rate = [0.001, 0.002, 0.003, 0.005]
+    training_error_rate = 1e-3
     m_nearest_nodes = 5
     code_size = 7
     repetitions = 11
@@ -71,7 +72,7 @@ if __name__ == '__main__':
     
     GNN_params = {
         'model': {
-            'class': gnn.OLD_GNN_7,
+            'class': OLD_GNN_7,
             'num_classes': 1, # 1 output class for two-headed model
             'loss': criterion,
             'num_node_features': num_node_features,
