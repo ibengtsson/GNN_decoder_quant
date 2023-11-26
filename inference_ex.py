@@ -53,7 +53,6 @@ def main():
         p,
         n_shots=n_graphs,
         seed=seed,
-        code_task="surface_code:rotated_memory_z",
     )
     syndromes, flips, n_trivial = sim.generate_syndromes()
 
