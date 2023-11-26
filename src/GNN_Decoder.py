@@ -65,7 +65,7 @@ class GNN_Decoder:
             print("!!!!!!Input model must be a valid GNN class!!!!!!")
 
         if p["cuda"]:
-            device = p["cuda"]
+            device = torch.device("cuda")
             self.model = self.model.to(device)
         
         # Create lists to store results from consecutive training loops
