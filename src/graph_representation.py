@@ -1,8 +1,6 @@
 """Package with functions for creating graph representations of syndromes."""
 import numpy as np
 import torch
-from torch_geometric.nn import knn_graph
-from torch_geometric.utils import to_dense_adj, to_dense_batch
 from icecream import ic
 
 
@@ -67,8 +65,6 @@ def get_3D_graph(
     target=None,
     m_nearest_nodes=None,
     power=None,
-    use_knn=False,
-    test=False,
 ):
     """
     Form a graph from a repeated syndrome measurement where a node is added,
@@ -109,35 +105,6 @@ def get_3D_graph(
     else:
         y = None
 
-    if test:
-        adj = np.maximum(adj, adj.T)  # Make sure for each edge i->j there is edge j->i
-        n_edges = np.count_nonzero(adj)  # Get number of edges
-
-        # get the edge indices:
-        edge_index = np.nonzero(adj)
-        edge_attr = adj[edge_index].reshape(n_edges, 1)
-        edge_index = np.array(edge_index)
-
-        return (
-            torch.from_numpy(X.astype(np.float32)),
-            torch.from_numpy(edge_index.astype(np.int64)),
-            torch.from_numpy(edge_attr.astype(np.float32)),
-            torch.from_numpy(y.astype(np.float32)),
-        )
-        
-    if use_knn:
-        x = torch.tensor(X, dtype=torch.float32)
-        edge_index = knn_graph(x[:, 2:], m_nearest_nodes, flow="target_to_source", batch_size=1)
-        adj = torch.tensor(adj, dtype=torch.float32)
-        mask = torch.zeros_like(adj, dtype=bool)
-        mask[*edge_index] = True
-        adj[~mask] = 0
-        edge_attr = adj[mask][:, None]
-
-        y = torch.tensor(y)
-
-        return x, edge_index, edge_attr, y
-
     # remove all but the m_nearest neighbours
     if m_nearest_nodes is not None:
         for ix, row in enumerate(adj.T):
@@ -164,16 +131,3 @@ def get_3D_graph(
         torch.from_numpy(edge_attr.astype(np.float32)),
         torch.from_numpy(y.astype(np.float32)),
     )
-
-def prune_graph(x, edge_index, edge_attr, batch, m_nearest_nodes):
-    
-    adj = to_dense_adj(edge_index, batch, edge_attr).squeeze()
-    ic(adj.shape)
-    edge_index = knn_graph(x[:, 2:], m_nearest_nodes, batch=batch, flow="target_to_source")
-    ic(edge_index.shape)
-    mask = torch.zeros_like(adj, dtype=bool)
-    mask[*edge_index] = True
-    adj[~mask] = 0
-    edge_attr = adj[mask][:, None]
-    
-    return edge_index, edge_attr
