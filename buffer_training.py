@@ -63,8 +63,8 @@ if __name__ == '__main__':
     num_iterations = 0
     buffer_size = int(1e5)
     replacements_per_iteration = int(1e3)
-    test_size = int(1e5)
-    batch_size = 10000
+    test_size = int(1e7)
+    batch_size = 20000
     benchmark = False
     validation = False
     
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     #     validation = validation)
 
     print('\n==== TESTING ====')
-    rates = [0.001, 0.002, 0.003]
+    # rates = [0.001, 0.002, 0.003]
     rates = [0.001]
     for r in rates:
         acc = decoder.train_with_data_buffer(
@@ -166,5 +166,5 @@ if __name__ == '__main__':
             error_rate = r,
             train = False,
             test_size = test_size,
-            batch_size=12000)
+            batch_size = batch_size)
         print(f'Test accuracy: {acc}, Error rate: {r}')
