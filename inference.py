@@ -39,12 +39,12 @@ def main():
     model.eval()
 
     # settings
-    n_graphs = int(5e4)
-    n_graphs_per_sim = int(8e3)
+    n_graphs = int(1e7)
+    n_graphs_per_sim = int(1e5)
     m_nearest_nodes = 5
     seed = None
     p = 1e-3
-    batch_size = 12000 if "cuda" in device.type else 4000
+    batch_size = 50000 if "cuda" in device.type else 4000
 
     # if we want to generate many graphs, do so in chunks
     if n_graphs > n_graphs_per_sim:
