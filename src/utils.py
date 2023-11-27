@@ -262,7 +262,7 @@ def run_inference(
 
     # loop over batches
     with torch.no_grad():
-        for batch in tqdm(loader):
+        for batch in loader:
             # unzip data
             x = batch.x.to(device)
             edge_index = batch.edge_index.to(device)
