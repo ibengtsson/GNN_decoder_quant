@@ -38,9 +38,11 @@ def main():
     model = match_and_load_state_dict(model, model_data["model"])
     model.eval()
 
+    print(f"Moved model to {device} and loaded pre-trained weights.")
+    
     # settings
     n_graphs = int(1e7)
-    n_graphs_per_sim = int(1e5)
+    n_graphs_per_sim = int(1e4)
     m_nearest_nodes = 5
     seed = None
     p = 1e-3
@@ -60,7 +62,8 @@ def main():
     # go through partitions
     correct_preds = 0
     n_trivial = 0
-    for _ in range(n_partitions):
+    for i in range(n_partitions):
+        print(f"Running partition {i + 1} of {n_partitions}.")
         sim = SurfaceCodeSim(
             reps,
             code_sz,
