@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#SBATCH -A NAISS 2023/5-353 -p alvis
 #SBATCH -t 0-03:00:00 			# time limit days-hours:minutes:seconds
 #SBATCH -J d7_d_t_5
 #SBATCH -o ./job_outputs/d7_d_t_5_id%j.out
@@ -29,7 +30,7 @@
 
 ## IO settings
 # export JOB_NAME=$SLURM_JOB_NAME
-## Load old model:
+# # Load old model:
 # export RESUMED_TRAINING_FILE_NAME='surface_code_d7_d_t_11_resume_III_id1166198'
 
 # Load modules using pre-installed packages from the Alvis module tree
