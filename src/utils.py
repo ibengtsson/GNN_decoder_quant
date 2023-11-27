@@ -277,6 +277,6 @@ def run_inference(
             )
 
             prediction = (sigmoid(out.detach()) > 0.5).long()
-            target = batch.y.int()
+            target = batch.y.to(device).int()
             correct_preds += int((prediction == target).sum())
     return correct_preds
