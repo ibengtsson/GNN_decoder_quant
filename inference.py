@@ -39,8 +39,8 @@ def main():
     model.eval()
 
     # settings
-    n_graphs = int(1e7)
-    n_graphs_per_sim = int(1e5)
+    n_graphs = int(1e3)
+    n_graphs_per_sim = int(1e2)
     m_nearest_nodes = 5
     seed = None
     p = 1e-3
@@ -50,8 +50,7 @@ def main():
     if n_graphs > n_graphs_per_sim:
         n_partitions = n_graphs // n_graphs_per_sim
         remaining = n_graphs % n_graphs_per_sim
-        n_partitions = 1
-
+    
     # read code distance and number of repetitions from file name
     file_name = model_path.name
     splits = file_name.split("_")
