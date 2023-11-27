@@ -39,8 +39,8 @@ def main():
     model.eval()
 
     # settings
-    n_graphs = int(1e3)
-    n_graphs_per_sim = int(1e2)
+    n_graphs = int(1e7)
+    n_graphs_per_sim = int(1e5)
     m_nearest_nodes = 5
     seed = None
     p = 1e-3
