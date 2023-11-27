@@ -217,16 +217,46 @@ def get_zero_pt(
         return torch.round(
             (-alpha * 2**bit_width) / (beta - alpha)
         )
-        
 
+# def run_inference(
+#     model: nn.Module,
+#     loader: DataLoader,
+#     n_graphs: int,
+#     n_trivial_preds: int,
+#     device: torch.device = torch.device("cpu")
+# ) -> float:
+#     sigmoid = nn.Sigmoid()
+#     correct_preds = 0
+
+#     # loop over batches
+#     with torch.no_grad():
+#         for batch in tqdm(loader):
+#             # unzip data
+#             x = batch.x.to(device)
+#             edge_index = batch.edge_index.to(device)
+#             edge_attr = batch.edge_attr.to(device)
+#             batch_label = batch.batch.to(device)
+
+#             out = model(
+#                 x,
+#                 edge_index,
+#                 edge_attr,
+#                 batch_label,
+#             )
+
+#             prediction = (sigmoid(out.detach()) > 0.5).long()
+#             target = batch.y.int()
+#             correct_preds += int((prediction == target).sum())
+
+#     accuracy = (n_graphs - correct_preds - n_trivial_preds) / n_graphs
+#     return accuracy, correct_preds
 
 def run_inference(
     model: nn.Module,
     loader: DataLoader,
-    n_graphs: int,
-    n_trivial_preds: int,
     device: torch.device = torch.device("cpu")
 ) -> float:
+    
     sigmoid = nn.Sigmoid()
     correct_preds = 0
 
@@ -249,6 +279,4 @@ def run_inference(
             prediction = (sigmoid(out.detach()) > 0.5).long()
             target = batch.y.int()
             correct_preds += int((prediction == target).sum())
-
-    accuracy = (n_graphs - correct_preds - n_trivial_preds) / n_graphs
-    return accuracy, correct_preds
+    return correct_preds
