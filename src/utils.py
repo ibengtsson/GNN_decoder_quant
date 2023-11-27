@@ -24,7 +24,7 @@ def get_all_weights(model: nn.Module) -> np.ndarray:
     weights: OrderedDict = model.state_dict()
     all_weights = []
     for weight in weights.values():
-        all_weights.append(weight.numpy().flatten())
+        all_weights.append(weight.cpu().numpy().flatten())
     
     return np.concatenate(all_weights)
 
