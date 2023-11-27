@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH -A NAISS 2023/5-353 -p alvis
+#SBATCH -A NAISS2023/5-353 -p alvis
 #SBATCH -t 0-03:00:00 			# time limit days-hours:minutes:seconds
 #SBATCH -J d7_d_t_5
 #SBATCH -o ./job_outputs/d7_d_t_5_id%j.out
