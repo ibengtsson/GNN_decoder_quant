@@ -269,7 +269,6 @@ def explore_weights(
             n_trivial_preds,
             device=device,
         )
-        print(f"\n{float_accuracy=}")
         accuracies = np.array(accuracies)
         q_errors = np.array(q_errors)
 
