@@ -392,7 +392,7 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_graphs = int(1e7)
-    n_graphs_per_sim = int(5e4)
+    n_graphs_per_sim = int(5e5)
     batch_size = 80000 if "cuda" in device.type else 4000
     p = 1e-3
     min_bits = 2
