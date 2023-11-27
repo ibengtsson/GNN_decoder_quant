@@ -8,4 +8,4 @@
 
 module purge
 source ~/scripts/load_env.sh
-python3 -u $SLURM_SUBMIT_DIR/inference.py -f "models/circuit_level_noise/d7/d7_d_t_11.pt"
+python3 -u $SLURM_SUBMIT_DIR/inference.py -f "models/circuit_level_noise/d5/d5_d_t_5.pt"
