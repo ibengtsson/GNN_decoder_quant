@@ -128,7 +128,7 @@ def explore_weights(
             code_sz,
             p,
             n_shots=remaining,
-            seed=seed,
+            seed=seed - 1,
         )
 
     # generate syndromes and save number of trivial syndromes
@@ -214,13 +214,13 @@ def explore_data(
     # go through partitions
     sigmoid = nn.Sigmoid()
     q_errors = []
-    for _ in range(n_partitions):
+    for i in range(n_partitions):
         sim = SurfaceCodeSim(
             reps,
             code_sz,
             p,
             n_shots=n_graphs_per_sim,
-            seed=seed,
+            seed=seed + i,
         )
 
         # generate syndromes and save number of trivial syndromes
