@@ -44,7 +44,7 @@ def explore_weights(
     m_nearest_nodes: int = 5,
     batch_size: int = 5000,
     seed: int = None,
-    device: torch.device = torch.device("cpu"),
+    device: torch.device = torch.device("cuda"),
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     
     # get weights in FP32
@@ -194,7 +194,7 @@ def explore_data(
     m_nearest_nodes: int = 5,
     batch_size: int = 5000,
     seed: int = None,
-    device: torch.device = torch.device("cpu")
+    device: torch.device = torch.device("cuda")
 ) -> list[tuple[np.ndarray, np.ndarray]]:
     
     # collect data for all iterations
@@ -252,23 +252,23 @@ def explore_data(
                 data = np.concatenate(
                     [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
                 )
-
                 lower_limit = torch.tensor(data.min())
                 upper_limit = torch.tensor(data.max())
-                scale = get_scale(lower_limit, upper_limit, bit_width)
-                zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
-                x = quantize_tensor(x, scale, zero_pt, bit_width)
-                x = dequantize_tensor(x, scale, zero_pt)
-                edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
-                edge_attr = dequantize_tensor(edge_attr, scale, zero_pt)
-
-                dq_data = np.concatenate(
-                    [x.numpy().flatten(), edge_attr.numpy().flatten()]
-                )
-                q_errors.append(np.linalg.norm(data - dq_data))
-
+            
                 count = 0
                 for bit_width in bit_widths:
+                    scale = get_scale(lower_limit, upper_limit, bit_width)
+                    zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+                    x = quantize_tensor(x, scale, zero_pt, bit_width)
+                    x = dequantize_tensor(x, scale, zero_pt)
+                    edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
+                    edge_attr = dequantize_tensor(edge_attr, scale, zero_pt)
+
+                    dq_data = np.concatenate(
+                        [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
+                    )
+                    q_errors.append(np.linalg.norm(data - dq_data))
+                    
                     out = model(
                         x,
                         edge_index,
@@ -279,6 +279,78 @@ def explore_data(
                     target = batch.y.to(device).int()
                     bit_predictions_data[count, 0] += int((prediction == target).sum())
                     count += 1
+                    
+        float_predictions_data[0] += run_inference(model, loader, device)
+        
+    # run the remaining parts
+    sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            p,
+            n_shots=remaining,
+            seed=seed - 1,
+        )
+
+    # generate syndromes and save number of trivial syndromes
+    syndromes, flips, n_identities = sim.generate_syndromes()
+    bit_predictions_data[:, 1] += n_identities
+    float_predictions_data[1] += n_identities
+    
+    graphs = []
+    for syndrome, flip in zip(syndromes, flips):
+        x, edge_index, edge_attr, y = get_3D_graph(
+            syndrome_3D=syndrome,
+            target=flip,
+            m_nearest_nodes=m_nearest_nodes,
+            power=2.0,
+        )
+        graphs.append(Data(x, edge_index, edge_attr, y))
+    loader = DataLoader(graphs, batch_size=batch_size)
+    
+    count = 0
+    with torch.no_grad():
+        for batch in loader:
+            
+            # unzip data
+            x = batch.x.to(device)
+            edge_index = batch.edge_index.to(device)
+            edge_attr = batch.edge_attr.to(device)
+            batch_label = batch.batch.to(device)
+
+            # quantize and dequantize data
+            data = np.concatenate(
+                [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
+            )
+            lower_limit = torch.tensor(data.min())
+            upper_limit = torch.tensor(data.max())
+        
+            count = 0
+            for bit_width in bit_widths:
+                scale = get_scale(lower_limit, upper_limit, bit_width)
+                zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+                x = quantize_tensor(x, scale, zero_pt, bit_width)
+                x = dequantize_tensor(x, scale, zero_pt)
+                edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
+                edge_attr = dequantize_tensor(edge_attr, scale, zero_pt)
+
+                dq_data = np.concatenate(
+                    [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
+                )
+                q_errors.append(np.linalg.norm(data - dq_data))
+                
+                out = model(
+                    x,
+                    edge_index,
+                    edge_attr,
+                    batch_label,
+                )
+                prediction = (sigmoid(out.detach()) > 0.5).long()
+                target = batch.y.to(device).int()
+                bit_predictions_data[count, 0] += int((prediction == target).sum())
+                count += 1
+                
+    # add final floating point predictions
+    float_predictions_data[0] += run_inference(model, loader, device)
                 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (np.ones((len(bit_widths), 1)) * n_graphs - bit_predictions_data.sum(axis=1, keepdims=True)) / n_graphs
@@ -302,7 +374,7 @@ def main():
     batch_size = int(5e5) if "cuda" in device.type else 4000
     p = 1e-3
     min_bits = 2
-    max_bits = 16
+    max_bits = 4
     
     # must use seed to make sure code distances are comparable
     seed = 747
@@ -324,6 +396,7 @@ def main():
         float_model = match_and_load_state_dict(float_model, trained_weights)
         float_model.eval()
 
+        print(f"Running bit exploration for {n_graphs} graphs with maximal batch size {batch_size}.")
         if experiment == "weights":
             failure_rate, failure_rate_fp_model, q_error = explore_weights(
                 float_model,
@@ -350,6 +423,7 @@ def main():
                 n_graphs,
                 n_graphs_per_sim,
                 batch_size,
+                seed = seed,
                 device=device,
             )
         else:
@@ -361,7 +435,7 @@ def main():
     fig_acc, ax_acc = plt.subplots(figsize=(12, 8))
     fig_qerr, ax_qerr = plt.subplots(figsize=(12, 8))
 
-    x = range(min_bits, max_bits + 1)
+    x = np.arange(min_bits, max_bits + 1, step=2)
     colors = ["r", "b", "g"]
     code_sz = [3, 5, 7]
     for i, data in enumerate(data_per_code_sz):
