@@ -11,6 +11,8 @@ from src.graph_representation import get_3D_graph
 from src.utils import match_and_load_state_dict, run_inference
 from pathlib import Path
 from tqdm import tqdm
+import sys
+sys.path.append("..")
 from sys import getsizeof
 
 
