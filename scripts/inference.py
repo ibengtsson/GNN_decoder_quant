@@ -5,14 +5,16 @@ import torch_geometric.nn as nn_g
 import torch.ao.quantization as tq
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
+import sys
+sys.path.append("..")
+
 from src.gnn_models import GNN_7
 from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
 from src.utils import match_and_load_state_dict, run_inference
 from pathlib import Path
 from tqdm import tqdm
-import sys
-sys.path.append("..")
+
 from sys import getsizeof
 
 
