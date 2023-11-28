@@ -119,6 +119,7 @@ def main():
             syndrome_3D=syndrome,
             target=flip,
             m_nearest_nodes=m_nearest_nodes,
+            power=2.0
         )
         graphs.append(Data(x, edge_index, edge_attr, y))
     loader = DataLoader(graphs, batch_size=batch_size)
@@ -128,34 +129,6 @@ def main():
     failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
     print(f"We have a logical failure rate of {failure_rate}.")
     return 0
-
-    sigmoid = nn.Sigmoid()
-    correct_preds = 0
-    n_data_instances = 0
-    # run inference on simulated data
-    with torch.no_grad():
-        for batch in tqdm(loader):
-            x = batch.x.to(device)
-            edge_index = batch.edge_index.to(device)
-            edge_attr = batch.edge_attr.to(device)
-            batch_label = batch.batch.to(device)
-            target = batch.y.to(device).int()
-
-            out = model(
-                x,
-                edge_index,
-                edge_attr,
-                batch_label,
-            )
-
-            prediction = sigmoid(out.detach()).round().long()
-            correct_preds += int((prediction == target).sum())
-
-    failure_rate = (n_graphs - correct_preds - n_trivial) / float(n_graphs)
-    print(f"We have a logical failure rate of {failure_rate}.")
-
-    return 0
-
 
 if __name__ == "__main__":
     main()
