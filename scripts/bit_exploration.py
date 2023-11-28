@@ -411,20 +411,20 @@ def explore_data(
                 for bit_width in bit_widths:
                     scale = get_scale(lower_limit, upper_limit, bit_width)
                     zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
-                    x = quantize_tensor(x, scale, zero_pt, bit_width)
-                    x = dequantize_tensor(x, scale, zero_pt)
-                    edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
-                    edge_attr = dequantize_tensor(edge_attr, scale, zero_pt)
+                    qx = quantize_tensor(x, scale, zero_pt, bit_width)
+                    rx = dequantize_tensor(qx, scale, zero_pt)
+                    q_edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
+                    r_edge_attr = dequantize_tensor(q_edge_attr, scale, zero_pt)
 
                     dq_data = np.concatenate(
-                        [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
+                        [rx.cpu().numpy().flatten(), r_edge_attr.cpu().numpy().flatten()]
                     )
                     q_errors[count] = np.linalg.norm(data - dq_data)
 
                     out = model(
-                        x,
+                        rx,
                         edge_index,
-                        edge_attr,
+                        r_edge_attr,
                         batch_label,
                     )
                     prediction = (sigmoid(out.detach()) > 0.5).long()
@@ -481,20 +481,20 @@ def explore_data(
             for bit_width in bit_widths:
                 scale = get_scale(lower_limit, upper_limit, bit_width)
                 zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
-                x = quantize_tensor(x, scale, zero_pt, bit_width)
-                x = dequantize_tensor(x, scale, zero_pt)
-                edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
-                edge_attr = dequantize_tensor(edge_attr, scale, zero_pt)
+                qx = quantize_tensor(x, scale, zero_pt, bit_width)
+                rx = dequantize_tensor(qx, scale, zero_pt)
+                q_edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
+                r_edge_attr = dequantize_tensor(q_edge_attr, scale, zero_pt)
 
                 dq_data = np.concatenate(
-                    [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
+                    [rx.cpu().numpy().flatten(), r_edge_attr.cpu().numpy().flatten()]
                 )
                 q_errors[count] = np.linalg.norm(data - dq_data)
 
                 out = model(
-                    x,
+                    rx,
                     edge_index,
-                    edge_attr,
+                    r_edge_attr,
                     batch_label,
                 )
                 prediction = (sigmoid(out.detach()) > 0.5).long()
@@ -518,7 +518,7 @@ def explore_data(
 
 
 def main():
-    experiment = "weights_per_layer"
+    experiment = "data"
 
     paths = [
         Path("../models/circuit_level_noise/d3/d3_d_t_5.pt"),
