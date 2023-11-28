@@ -81,7 +81,7 @@ def explore_weights(
         # generate syndromes and save number of trivial syndromes
         syndromes, flips, n_identities = sim.generate_syndromes()
         bit_predictions_data[:, 1] += n_identities
-        float_predictions_data[1] += float(n_identities)
+        float_predictions_data[1] += n_identities
         
         graphs = []
         for syndrome, flip in zip(syndromes, flips):
@@ -135,7 +135,7 @@ def explore_weights(
     # generate syndromes and save number of trivial syndromes
     syndromes, flips, n_identities = sim.generate_syndromes()
     bit_predictions_data[:, 1] += n_identities
-    float_predictions_data[1] += float(n_identities)
+    float_predictions_data[1] += n_identities
     
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
@@ -179,7 +179,7 @@ def explore_weights(
         
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (np.ones((len(bit_widths), 1)) * n_graphs - bit_predictions_data.sum(axis=1, keepdims=True)) / n_graphs
-    failure_rate_fp_model = (float(n_graphs) - float_predictions_data.sum()) / n_graphs
+    failure_rate_fp_model = (n_graphs - float_predictions_data.sum()) / n_graphs
 
     return failure_rate, failure_rate_fp_model, q_errors
   
@@ -364,7 +364,7 @@ def explore_data(
     return failure_rate, failure_rate_fp_model, q_batch_error
 
 def main():
-    experiment = "weights"
+    experiment = "data"
 
     paths = [
         Path("../models/circuit_level_noise/d3/d3_d_t_5.pt"),
@@ -374,8 +374,8 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_graphs = int(1e7)
-    n_graphs_per_sim = int(1e5)
-    batch_size = 80000 if "cuda" in device.type else 4000
+    n_graphs_per_sim = int(5e4)
+    batch_size = n_graphs_per_sim if "cuda" in device.type else 4000
     p = 1e-3
     min_bits = 2
     max_bits = 16
@@ -411,7 +411,7 @@ def main():
                 max_bits,
                 n_graphs,
                 n_graphs_per_sim,
-                batch_size,
+                batch_size=batch_size,
                 seed=seed,
                 device=device,
             )
@@ -427,7 +427,7 @@ def main():
                 max_bits,
                 n_graphs,
                 n_graphs_per_sim,
-                batch_size,
+                batch_size=batch_size,
                 seed = seed,
                 device=device,
             )
@@ -458,17 +458,19 @@ def main():
             x,
             failure_rate,
             color=colors[i],
+            label=f"d = {code_sz[i]}",
         )
 
         ax_qerr.semilogy(
             x,
             q_error,
             color=colors[i],
+            label=f"d = {code_sz[i]}",
         )
 
     ax_acc.set_xlabel("# bits")
     ax_acc.set_ylabel("Logical failure rate")
-    ax_acc.legend(loc="lower right")
+    ax_acc.legend(loc="upper right")
     ax_acc.set_title(f"Quantization of {experiment}")
 
     ax_qerr.set_xlabel("# bits")
@@ -478,8 +480,8 @@ def main():
     fig_acc.tight_layout()
     fig_qerr.tight_layout()
 
-    fig_acc.savefig(f"../figures/bit_accuracies_{experiment}_latest.pdf")
-    fig_qerr.savefig(f"../figures/bit_qerror_{experiment}_latest.pdf")
+    fig_acc.savefig(f"../figures/bit_accuracies_{experiment}.pdf")
+    fig_qerr.savefig(f"../figures/bit_qerror_{experiment}.pdf")
 
 
 if __name__ == "__main__":
