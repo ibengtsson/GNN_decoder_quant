@@ -82,32 +82,30 @@ def quantize_model_layers(
     scale: torch.Tensor = None,
     zero_pt: torch.Tensor = None,
     signed: bool = True,
-    layer_index: int = None,
+    layer_names: list = None,
     quantile: float = 0.001,
 ) -> tuple[list[str], float, int]:
     weights: OrderedDict = model.state_dict()
 
-    keys = []
-    if layer_index is not None:
-        key = list(model.state_dict())[layer_index]
-        layer_weight = weights[key]
+    if layer_names is not None:
+        for name in layer_names:
+            layer_weight = weights[name]
 
-        if not same_quantization:
-            lower_bound = torch.quantile(layer_weight, quantile)
-            upper_bound = torch.quantile(layer_weight, 1 - quantile)
-            scale = get_scale(lower_bound, upper_bound, bit_width=bit_width)
-            zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width=bit_width)
+            if not same_quantization:
+                lower_bound = torch.quantile(layer_weight, quantile)
+                upper_bound = torch.quantile(layer_weight, 1 - quantile)
+                scale = get_scale(lower_bound, upper_bound, bit_width=bit_width)
+                zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width=bit_width)
 
-        weights[key] = quantize_tensor(
-            weights[key],
-            scale=scale,
-            zero_point=zero_pt,
-            bit_width=bit_width,
-            signed=signed,
-        )
+            weights[name] = quantize_tensor(
+                layer_weight,
+                scale=scale,
+                zero_point=zero_pt,
+                bit_width=bit_width,
+                signed=signed,
+            )
 
         model.load_state_dict(weights)
-        keys.append(key)
 
     else:
         for key, tensor in weights.items():
@@ -128,33 +126,27 @@ def quantize_model_layers(
                 signed=signed,
             )
             model.load_state_dict(weights)
-            keys.append(key)
 
-    return keys, scale, zero_pt
+    return scale, zero_pt
 
 
 def dequantize_model_layers(
     model: nn.Module,
     scale: torch.Tensor,
     zero_pt: torch.Tensor,
-    layer_index: int = None,
+    layer_names: int = None,
 ) -> list[str]:
     weights: OrderedDict = model.state_dict()
 
-    keys = []
-    if layer_index is not None:
-        key = list(model.state_dict())[layer_index]
-        weights[key] = dequantize_tensor(weights[key], scale, zero_pt)
+    if layer_names is not None:
+        for name in layer_names:
+            weights[name] = dequantize_tensor(weights[name], scale, zero_pt)
 
         model.load_state_dict(weights)
-        keys.append(key)
     else:
         for key, tensor in weights.items():
             weights[key] = dequantize_tensor(tensor, scale, zero_pt)
             model.load_state_dict(weights)
-            keys.append(key)
-
-    return keys
 
 
 def get_number_of_model_layers(module: nn.Module):
