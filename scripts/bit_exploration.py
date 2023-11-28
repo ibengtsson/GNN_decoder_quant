@@ -201,7 +201,8 @@ def explore_data(
     bit_widths = np.arange(min_bits, max_bits + 1, step=2, dtype=np.int64)
     bit_predictions_data = np.zeros((len(bit_widths), 2))
     float_predictions_data = np.zeros((2, 1))
-    q_errors = np.zeros((len(bit_widths),))
+    q_errors = np.zeros((len(bit_widths), 1))
+    q_batch_error = []
     
     # if we want to generate many graphs, do so in chunks
     if n_graphs > n_graphs_per_sim:
@@ -213,7 +214,6 @@ def explore_data(
     
     # go through partitions
     sigmoid = nn.Sigmoid()
-    q_errors = []
     for i in range(n_partitions):
         sim = SurfaceCodeSim(
             reps,
@@ -267,7 +267,7 @@ def explore_data(
                     dq_data = np.concatenate(
                         [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
                     )
-                    q_errors.append(np.linalg.norm(data - dq_data))
+                    q_errors[count] = np.linalg.norm(data - dq_data)
                     
                     out = model(
                         x,
@@ -279,6 +279,8 @@ def explore_data(
                     target = batch.y.to(device).int()
                     bit_predictions_data[count, 0] += int((prediction == target).sum())
                     count += 1
+                    
+                q_batch_error.append(q_errors)
                     
         float_predictions_data[0] += run_inference(model, loader, device)
         
@@ -336,7 +338,7 @@ def explore_data(
                 dq_data = np.concatenate(
                     [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
                 )
-                q_errors.append(np.linalg.norm(data - dq_data))
+                q_errors[count] = np.linalg.norm(data - dq_data)
                 
                 out = model(
                     x,
@@ -349,6 +351,7 @@ def explore_data(
                 bit_predictions_data[count, 0] += int((prediction == target).sum())
                 count += 1
                 
+            q_batch_error.append(q_errors)
     # add final floating point predictions
     float_predictions_data[0] += run_inference(model, loader, device)
                 
@@ -356,11 +359,11 @@ def explore_data(
     failure_rate = (np.ones((len(bit_widths), 1)) * n_graphs - bit_predictions_data.sum(axis=1, keepdims=True)) / n_graphs
     failure_rate_fp_model = (n_graphs - float_predictions_data.sum()) / n_graphs
     
-    q_errors = np.array(q_errors).mean()
-    return failure_rate, failure_rate_fp_model, q_errors
+    q_batch_error = np.array(q_batch_error).mean(axis=0)
+    return failure_rate, failure_rate_fp_model, q_batch_error
 
 def main():
-    experiment = "weights"
+    experiment = "data"
 
     paths = [
         Path("../models/circuit_level_noise/d3/d3_d_t_5.pt"),
