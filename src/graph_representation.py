@@ -72,7 +72,7 @@ def get_3D_graph(syndrome_3D, target=None, m_nearest_nodes=None, power=None):
     X = get_node_feature_matrix(defects, defect_indices_triple, num_node_features=5)
     # set default power of inverted distances to 1
     if power is None:
-        power = 1.0
+        power = 2.0
 
     # construct the adjacency matrix!
     n_defects = len(defects)
