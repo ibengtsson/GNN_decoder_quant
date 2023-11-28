@@ -518,7 +518,7 @@ def explore_data(
 
 
 def main():
-    experiment = "data"
+    experiment = "weights_per_layer"
 
     paths = [
         Path("../models/circuit_level_noise/d3/d3_d_t_5.pt"),
