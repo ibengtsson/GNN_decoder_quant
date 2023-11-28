@@ -46,7 +46,7 @@ def main():
     
     # settings
     n_graphs = int(1e6)
-    n_graphs_per_sim = int(5e5)
+    n_graphs_per_sim = int(1e5)
     m_nearest_nodes = 5
     seed = 747
     p = 1e-3
@@ -69,7 +69,6 @@ def main():
     # go through partitions
     correct_preds = 0
     n_trivial = 0
-    n_untrivial = 0
     for i in range(n_partitions):
         print(f"Running partition {i + 1} of {n_partitions}.")
         sim = SurfaceCodeSim(
@@ -81,7 +80,7 @@ def main():
         )
 
         syndromes, flips, n_identities = sim.generate_syndromes()
-        n_untrivial += syndromes.shape[0]
+
         # add identities to # trivial predictions
         n_trivial += n_identities
 
@@ -111,8 +110,7 @@ def main():
     syndromes, flips, n_identities = sim.generate_syndromes()
     # add identities to # trivial predictions
     n_trivial += n_identities
-    n_untrivial += syndromes.shape[0]
-
+    
     graphs = []
     for syndrome, flip in zip(syndromes, flips):
         x, edge_index, edge_attr, y = get_3D_graph(
