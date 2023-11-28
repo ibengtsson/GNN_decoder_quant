@@ -68,13 +68,13 @@ def explore_weights(
         remaining = n_graphs
     
     # go through partitions
-    for _ in range(n_partitions):
+    for i in range(n_partitions):
         sim = SurfaceCodeSim(
             reps,
             code_sz,
             p,
             n_shots=n_graphs_per_sim,
-            seed=seed,
+            seed=seed + i,
         )
 
         # generate syndromes and save number of trivial syndromes
@@ -303,7 +303,10 @@ def main():
     p = 1e-3
     min_bits = 2
     max_bits = 16
-
+    
+    # must use seed to make sure code distances are comparable
+    seed = 747
+    
     # collect data for each code size
     data_per_code_sz = []
     for path in paths:
@@ -332,6 +335,7 @@ def main():
                 n_graphs,
                 n_graphs_per_sim,
                 batch_size,
+                seeed=seed,
                 device=device,
             )
         
