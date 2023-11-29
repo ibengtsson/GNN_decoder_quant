@@ -5,7 +5,7 @@ import numpy as np
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 import re
-from tqdm import tqdm
+from icecream import ic
 
 def match_and_load_state_dict(
     model: nn.Module,
@@ -19,14 +19,15 @@ def match_and_load_state_dict(
     model.load_state_dict(new_dict)
     return model
 
+
 def get_all_weights(model: nn.Module) -> np.ndarray:
-    
     weights: OrderedDict = model.state_dict()
     all_weights = []
     for weight in weights.values():
         all_weights.append(weight.cpu().numpy().flatten())
-    
+
     return np.concatenate(all_weights)
+
 
 def plot_weights(
     n_graph_layers: int,
@@ -117,7 +118,7 @@ def quantize_model_layers(
 
                 scale = get_scale(lower_bound, upper_bound, bit_width=bit_width)
                 zero_pt = get_zero_pt(lower_bound, upper_bound, bit_width=bit_width)
-                
+
             weights[key] = quantize_tensor(
                 tensor,
                 scale=scale,
@@ -147,6 +148,53 @@ def dequantize_model_layers(
         for key, tensor in weights.items():
             weights[key] = dequantize_tensor(tensor, scale, zero_pt)
             model.load_state_dict(weights)
+
+
+def fixed_precision_model_layers(
+    model: nn.Module,
+    bit_width: int,
+    layer_names: list = None,
+) -> None:
+    weights: OrderedDict = model.state_dict()
+    scale = get_scale(torch.tensor(0), torch.tensor(1), bit_width)
+    zero_pt = get_zero_pt(torch.tensor(0), torch.tensor(1), bit_width, signed=False,)
+
+    if layer_names is not None:
+        for name in layer_names:
+            sign = torch.sign(tensor)
+            layer_weight = weights[name]
+            trunc_weight = torch.trunc(layer_weight.abs())
+            fraction_weight = layer_weight.abs() - trunc_weight
+
+            q = quantize_tensor(
+                fraction_weight,
+                scale,
+                zero_pt,
+                bit_width,
+                signed=False,
+            )
+            fraction_weight = dequantize_tensor(q, scale, zero_pt)
+            weights[name] = (trunc_weight + fraction_weight) * sign
+
+        model.load_state_dict(weights)
+
+    else:
+        for key, tensor in weights.items():
+            sign = torch.sign(tensor)
+            trunc_weight = torch.trunc(tensor.abs())
+            fraction_weight = tensor.abs() - trunc_weight
+            
+            q = quantize_tensor(
+                fraction_weight,
+                scale,
+                zero_pt,
+                bit_width,
+                signed=False,
+            )
+            fraction_weight = dequantize_tensor(q, scale, zero_pt)
+            weights[key] = (trunc_weight + fraction_weight) * sign
+            
+        model.load_state_dict(weights)
 
 
 def get_number_of_model_layers(module: nn.Module):
@@ -190,7 +238,6 @@ def get_scale(
     beta: torch.Tensor,
     bit_width: np.int64 = 8,
 ) -> torch.Tensor:
-
     return (beta - alpha) / (2**bit_width - 1)
 
 
@@ -200,22 +247,17 @@ def get_zero_pt(
     bit_width: np.int64 = 8,
     signed: bool = True,
 ) -> torch.Tensor:
-    
     if signed:
         return torch.round(
             (2**bit_width * (alpha + beta) - 2 * beta) / (2 * (alpha - beta))
         )
     else:
-        return torch.round(
-            (-alpha * 2**bit_width) / (beta - alpha)
-        )
+        return torch.round((-alpha * 2**bit_width) / (beta - alpha))
+
 
 def run_inference(
-    model: nn.Module,
-    loader: DataLoader,
-    device: torch.device = torch.device("cpu")
+    model: nn.Module, loader: DataLoader, device: torch.device = torch.device("cpu")
 ) -> float:
-    
     sigmoid = nn.Sigmoid()
     correct_preds = 0
 
