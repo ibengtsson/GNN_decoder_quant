@@ -269,13 +269,11 @@ def run_inference(
     flips: np.ndarray = None,
     device: torch.device = torch.device("cpu"),
 ) -> int:
-    
     sigmoid = nn.Sigmoid()
     correct_preds = 0
 
     # loop over batches
     with torch.no_grad():
-        
         if loader:
             for batch in loader:
                 # unzip data
@@ -295,16 +293,20 @@ def run_inference(
                 target = batch.y.to(device).long()
                 correct_preds += int((prediction == target).sum())
         else:
-            x, edge_index, edge_attr, batch_label = get_batch_of_graphs(syndromes, 5)
+            x, edge_index, edge_attr, batch_label = get_batch_of_graphs(
+                syndromes,
+                5,
+                device=device,
+            )
             out = model(
-                    x,
-                    edge_index,
-                    edge_attr,
-                    batch_label,
-                )
+                x,
+                edge_index,
+                edge_attr,
+                batch_label,
+            )
 
             prediction = (sigmoid(out.detach()) > 0.5).long()
             target = torch.tensor(flips[:, None]).to(device).long()
             correct_preds += int((prediction == target).sum())
-            
+
     return correct_preds
