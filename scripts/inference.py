@@ -107,7 +107,7 @@ def main():
             code_sz,
             p,
             n_shots=remaining,
-            seed=seed - i,
+            seed=seed - 1,
         )
 
         syndromes, flips, n_identities = sim.generate_syndromes()
