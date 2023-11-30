@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 from torch_geometric.loader import DataLoader
+from src.graph_representation import get_batch_of_graphs
 import numpy as np
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 import re
 from icecream import ic
+
 
 def match_and_load_state_dict(
     model: nn.Module,
@@ -157,7 +159,12 @@ def fixed_precision_model_layers(
 ) -> None:
     weights: OrderedDict = model.state_dict()
     scale = get_scale(torch.tensor(0), torch.tensor(1), bit_width)
-    zero_pt = get_zero_pt(torch.tensor(0), torch.tensor(1), bit_width, signed=False,)
+    zero_pt = get_zero_pt(
+        torch.tensor(0),
+        torch.tensor(1),
+        bit_width,
+        signed=False,
+    )
 
     if layer_names is not None:
         for name in layer_names:
@@ -183,7 +190,7 @@ def fixed_precision_model_layers(
             sign = torch.sign(tensor)
             trunc_weight = torch.trunc(tensor.abs())
             fraction_weight = tensor.abs() - trunc_weight
-            
+
             q = quantize_tensor(
                 fraction_weight,
                 scale,
@@ -193,7 +200,7 @@ def fixed_precision_model_layers(
             )
             fraction_weight = dequantize_tensor(q, scale, zero_pt)
             weights[key] = (trunc_weight + fraction_weight) * sign
-            
+
         model.load_state_dict(weights)
 
 
@@ -256,28 +263,48 @@ def get_zero_pt(
 
 
 def run_inference(
-    model: nn.Module, loader: DataLoader, device: torch.device = torch.device("cpu")
-) -> float:
+    model: nn.Module,
+    loader: DataLoader = None,
+    syndromes: np.ndarray = None,
+    flips: np.ndarray = None,
+    device: torch.device = torch.device("cpu"),
+) -> int:
+    
     sigmoid = nn.Sigmoid()
     correct_preds = 0
 
     # loop over batches
     with torch.no_grad():
-        for batch in loader:
-            # unzip data
-            x = batch.x.to(device)
-            edge_index = batch.edge_index.to(device)
-            edge_attr = batch.edge_attr.to(device)
-            batch_label = batch.batch.to(device)
+        
+        if loader:
+            for batch in loader:
+                # unzip data
+                x = batch.x.to(device)
+                edge_index = batch.edge_index.to(device)
+                edge_attr = batch.edge_attr.to(device)
+                batch_label = batch.batch.to(device)
 
+                out = model(
+                    x,
+                    edge_index,
+                    edge_attr,
+                    batch_label,
+                )
+
+                prediction = (sigmoid(out.detach()) > 0.5).long()
+                target = batch.y.to(device).long()
+                correct_preds += int((prediction == target).sum())
+        else:
+            x, edge_index, edge_attr, batch_label = get_batch_of_graphs(syndromes, 5)
             out = model(
-                x,
-                edge_index,
-                edge_attr,
-                batch_label,
-            )
+                    x,
+                    edge_index,
+                    edge_attr,
+                    batch_label,
+                )
 
             prediction = (sigmoid(out.detach()) > 0.5).long()
-            target = batch.y.to(device).long()
+            target = torch.tensor(flips[:, None]).to(device).long()
             correct_preds += int((prediction == target).sum())
+            
     return correct_preds
