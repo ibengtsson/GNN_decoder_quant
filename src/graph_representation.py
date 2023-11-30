@@ -165,6 +165,6 @@ def get_batch_of_graphs(syndromes, m_nearest_nodes, n_node_features=5, power=2.0
     stack = torch.stack((x_dist, y_dist, t_dist))
     sup_norm, _ = torch.max(stack, dim=0)
     sup_norm = 1.0 / sup_norm ** power
-    edge_attr = sup_norm[*edge_index].reshape(edge_index.shape[1], 1)
+    edge_attr = sup_norm[edge_index[0], edge_index[1]].reshape(edge_index.shape[1], 1)
 
     return x, edge_index, edge_attr, batch_labels
