@@ -5,7 +5,9 @@ import torch_geometric.nn as nn_g
 import torch.ao.quantization as tq
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
+from torch_geometric.transforms import KNNGraph, Distance, Compose
 import sys
+
 sys.path.append("..")
 
 from src.gnn_models import GNN_7
@@ -43,14 +45,14 @@ def main():
     model.eval()
 
     print(f"Moved model to {device} and loaded pre-trained weights.")
-    
+
     # settings
-    n_graphs = int(1e6)
-    n_graphs_per_sim = int(5e4)
+    n_graphs = int(1e4)
+    n_graphs_per_sim = int(1e3)
     m_nearest_nodes = 5
     seed = 747
     p = 1e-3
-    batch_size = 80000 if "cuda" in device.type else 4000
+    batch_size = 80000 if "cuda" in device.type else 2000
 
     # if we want to generate many graphs, do so in chunks
     if n_graphs > n_graphs_per_sim:
@@ -59,7 +61,7 @@ def main():
     else:
         n_partitions = 0
         remaining = n_graphs
-    
+
     # read code distance and number of repetitions from file name
     file_name = model_path.name
     splits = file_name.split("_")
@@ -84,49 +86,51 @@ def main():
         # add identities to # trivial predictions
         n_trivial += n_identities
 
-        graphs = []
-        for syndrome, flip in zip(syndromes, flips):
-            x, edge_index, edge_attr, y = get_3D_graph(
-                syndrome_3D=syndrome,
-                target=flip,
-                m_nearest_nodes=m_nearest_nodes,
-                power=2.0,
-            )
-            graphs.append(Data(x, edge_index, edge_attr, y))
-        loader = DataLoader(graphs, batch_size=batch_size)
+        # graphs = []
+        # for syndrome, flip in zip(syndromes, flips):
+        #     x, edge_index, edge_attr, y = get_3D_graph(
+        #         syndrome_3D=syndrome,
+        #         target=flip,
+        #         m_nearest_nodes=m_nearest_nodes,
+        #         power=2.0,
+        #     )
+        #     graphs.append(Data(x, edge_index, edge_attr, y))
+        # loader = DataLoader(graphs, batch_size=batch_size)
 
         # run inference
-        correct_preds += run_inference(model, loader, device)
+        correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
 
     # run the remaining graphs
-    sim = SurfaceCodeSim(
-        reps,
-        code_sz,
-        p,
-        n_shots=remaining,
-        seed=seed - i,
-    )
-
-    syndromes, flips, n_identities = sim.generate_syndromes()
-    # add identities to # trivial predictions
-    n_trivial += n_identities
-    
-    graphs = []
-    for syndrome, flip in zip(syndromes, flips):
-        x, edge_index, edge_attr, y = get_3D_graph(
-            syndrome_3D=syndrome,
-            target=flip,
-            m_nearest_nodes=m_nearest_nodes,
-            power=2.0
+    if remaining > 0:
+        sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            p,
+            n_shots=remaining,
+            seed=seed - i,
         )
-        graphs.append(Data(x, edge_index, edge_attr, y))
-    loader = DataLoader(graphs, batch_size=batch_size)
-    correct_preds += run_inference(model, loader, device)
+
+        syndromes, flips, n_identities = sim.generate_syndromes()
+        # add identities to # trivial predictions
+        n_trivial += n_identities
+
+        # graphs = []
+        # for syndrome, flip in zip(syndromes, flips):
+        #     x, edge_index, edge_attr, y = get_3D_graph(
+        #         syndrome_3D=syndrome,
+        #         target=flip,
+        #         m_nearest_nodes=m_nearest_nodes,
+        #         power=2.0,
+        #     )
+        #     graphs.append(Data(x, edge_index, edge_attr, y))
+        # loader = DataLoader(graphs, batch_size=batch_size)
+        correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
 
     # compute logical failure rate
     failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
     print(f"We have a logical failure rate of {failure_rate}.")
     return 0
+
 
 if __name__ == "__main__":
     main()
