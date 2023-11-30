@@ -1,6 +1,7 @@
 """Package with functions for creating graph representations of syndromes."""
 import numpy as np
 import torch
+from torch_geometric.nn import knn_graph
 
 
 def get_node_list_3D(syndrome_3D):
@@ -56,7 +57,6 @@ def get_node_feature_matrix(defects, defect_indices_triple, num_node_features=No
     node_features[z_defects, 2:] = defect_indices_triple[z_defects, :]
 
     return node_features
-
 
 # Function for creating a single graph as a PyG Data object
 def get_3D_graph(syndrome_3D, target=None, m_nearest_nodes=None, power=None):
@@ -126,3 +126,45 @@ def get_3D_graph(syndrome_3D, target=None, m_nearest_nodes=None, power=None):
         torch.from_numpy(edge_attr.astype(np.float32)),
         torch.from_numpy(y.astype(np.float32)),
     ]
+
+def get_batch_of_graphs(syndromes, m_nearest_nodes, n_node_features=5, power=2.0):
+    
+    syndromes = syndromes.astype(np.float32)
+    
+    defect_inds = np.nonzero(syndromes)
+    defects = syndromes[defect_inds]
+
+    defect_inds = np.transpose(np.array(defect_inds))
+
+    x_defects = defects == 1
+    z_defects = defects == 3
+
+    node_features = np.zeros((defects.shape[0], n_node_features + 1), dtype=np.float32)
+
+    node_features[x_defects, 0] = 1
+    node_features[x_defects, 2:] = defect_inds[x_defects, ...]
+    node_features[z_defects, 1] = 1
+    node_features[z_defects, 2:] = defect_inds[z_defects, ...]
+
+    node_features.max(axis=0)
+    x_cols = [0, 1, 3, 4, 5]
+    batch_col = 2
+
+    x = torch.tensor(node_features[:, x_cols])
+    batch_labels = torch.tensor(node_features[:, batch_col]).long()
+    pos = x[:, 2:]
+    
+    # get edge indices
+    edge_index = knn_graph(pos, m_nearest_nodes, batch=batch_labels)
+    
+    # find edge attributes
+    x_dist = torch.abs(pos[:, 1, None].T - pos[:, 1, None])
+    y_dist = torch.abs(pos[:, 0, None].T - pos[:, 0, None])
+    t_dist = torch.abs(pos[:, 2, None].T - pos[:, 2, None])
+    
+    stack = torch.stack((x_dist, y_dist, t_dist))
+    sup_norm, _ = torch.max(stack, dim=0)
+    sup_norm = 1.0 / sup_norm ** power
+    edge_attr = sup_norm[*edge_index].reshape(edge_index.shape[1], 1)
+
+    return x, edge_index, edge_attr, batch_labels
