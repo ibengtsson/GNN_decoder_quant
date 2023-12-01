@@ -150,7 +150,7 @@ def get_batch_of_graphs(
 
     node_features[x_defects, 0] = 1
     node_features[x_defects, 2:] = defect_inds[x_defects, ...]
-    node_features[z_defects, 1] = 1
+    node_features[z_defects, 1] = 3
     node_features[z_defects, 2:] = defect_inds[z_defects, ...]
 
     node_features.max(axis=0)
@@ -165,16 +165,11 @@ def get_batch_of_graphs(
     edge_index = knn_graph(pos, m_nearest_nodes, batch=batch_labels)
 
     # find edge attributes
-    # x_dist = torch.abs(pos[:, 1, None].T - pos[:, 1, None])
-    # y_dist = torch.abs(pos[:, 0, None].T - pos[:, 0, None])
-    # t_dist = torch.abs(pos[:, 2, None].T - pos[:, 2, None])
-    
     x_dist = torch.cdist(pos[None, :, 1, None], pos[None, :, 1, None])
     y_dist = torch.cdist(pos[None, :, 0, None], pos[None, :, 0, None])
     t_dist = torch.cdist(pos[None, :, 2, None], pos[None, :, 2, None])
     stack = torch.cat((x_dist, y_dist, t_dist))
 
-    # stack = torch.stack((x_dist, y_dist, t_dist))
     sup_norm, _ = torch.max(stack, dim=0)
     sup_norm = 1.0 / sup_norm**power
     edge_attr = sup_norm[edge_index[0], edge_index[1]].reshape(edge_index.shape[1], 1)
