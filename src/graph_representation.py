@@ -168,7 +168,7 @@ def get_batch_of_graphs(
     x_dist = torch.cdist(pos[None, :, 1, None], pos[None, :, 1, None])
     y_dist = torch.cdist(pos[None, :, 0, None], pos[None, :, 0, None])
     t_dist = torch.cdist(pos[None, :, 2, None], pos[None, :, 2, None])
-    stack = torch.cat((x_dist, y_dist, t_dist))
+    stack = torch.cat((y_dist, x_dist, t_dist))
 
     sup_norm, _ = torch.max(stack, dim=0)
     sup_norm = 1.0 / sup_norm**power
