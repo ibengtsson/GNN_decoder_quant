@@ -150,7 +150,7 @@ def get_batch_of_graphs(
 
     node_features[x_defects, 0] = 1
     node_features[x_defects, 2:] = defect_inds[x_defects, ...]
-    node_features[z_defects, 1] = 3
+    node_features[z_defects, 1] = 1
     node_features[z_defects, 2:] = defect_inds[z_defects, ...]
 
     node_features.max(axis=0)
