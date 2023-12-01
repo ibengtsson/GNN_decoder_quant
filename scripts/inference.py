@@ -52,7 +52,7 @@ def main():
     m_nearest_nodes = 5
     seed = 747
     p = 1e-3
-    batch_size = 80000 if "cuda" in device.type else 2000
+    batch_size = n_graphs_per_sim if "cuda" in device.type else 2000
 
     # if we want to generate many graphs, do so in chunks
     if n_graphs > n_graphs_per_sim:
@@ -86,19 +86,20 @@ def main():
         # add identities to # trivial predictions
         n_trivial += n_identities
 
-        # graphs = []
-        # for syndrome, flip in zip(syndromes, flips):
-        #     x, edge_index, edge_attr, y = get_3D_graph(
-        #         syndrome_3D=syndrome,
-        #         target=flip,
-        #         m_nearest_nodes=m_nearest_nodes,
-        #         power=2.0,
-        #     )
-        #     graphs.append(Data(x, edge_index, edge_attr, y))
-        # loader = DataLoader(graphs, batch_size=batch_size)
+        graphs = []
+        for syndrome, flip in zip(syndromes, flips):
+            x, edge_index, edge_attr, y = get_3D_graph(
+                syndrome_3D=syndrome,
+                target=flip,
+                m_nearest_nodes=m_nearest_nodes,
+                power=2.0,
+            )
+            graphs.append(Data(x, edge_index, edge_attr, y))
+        loader = DataLoader(graphs, batch_size=batch_size)
 
         # run inference
-        correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
+        correct_preds += run_inference(model, loader, device=device)
+        # correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
 
     # run the remaining graphs
     if remaining > 0:
@@ -114,17 +115,18 @@ def main():
         # add identities to # trivial predictions
         n_trivial += n_identities
 
-        # graphs = []
-        # for syndrome, flip in zip(syndromes, flips):
-        #     x, edge_index, edge_attr, y = get_3D_graph(
-        #         syndrome_3D=syndrome,
-        #         target=flip,
-        #         m_nearest_nodes=m_nearest_nodes,
-        #         power=2.0,
-        #     )
-        #     graphs.append(Data(x, edge_index, edge_attr, y))
-        # loader = DataLoader(graphs, batch_size=batch_size)
-        correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
+        graphs = []
+        for syndrome, flip in zip(syndromes, flips):
+            x, edge_index, edge_attr, y = get_3D_graph(
+                syndrome_3D=syndrome,
+                target=flip,
+                m_nearest_nodes=m_nearest_nodes,
+                power=2.0,
+            )
+            graphs.append(Data(x, edge_index, edge_attr, y))
+        loader = DataLoader(graphs, batch_size=batch_size)
+        correct_preds += run_inference(model, loader, device=device)
+        # correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
 
     # compute logical failure rate
     failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
