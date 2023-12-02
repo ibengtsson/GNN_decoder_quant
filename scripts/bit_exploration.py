@@ -433,7 +433,7 @@ def explore_weights_per_layer(
 
         # generate syndromes and save number of trivial syndromes
         syndromes, flips, n_identities = sim.generate_syndromes()
-        layer_predictions_data[:, 1] += n_identities
+        layer_predictions_data[..., 1] += n_identities
         float_predictions_data[1] += n_identities
 
         graphs = []
@@ -476,14 +476,18 @@ def explore_weights_per_layer(
     float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
-    failure_rate = (
+    failure_rate = ((
         np.ones((len(bit_widths), len(layers), 1)) * n_graphs
         - layer_predictions_data.sum(axis=-1, keepdims=True)
-    ) / n_graphs
-    print(failure_rate.shape)
+    ) / n_graphs).squeeze()
+    
+    # want to check how many bits required to match accuracy of fp-model
     failure_rate_fp_model = (n_graphs - float_predictions_data.sum()) / n_graphs
+    below_or_equal = failure_rate <= failure_rate_fp_model
 
-    return failure_rate, failure_rate_fp_model
+    min_req_bits = np.tile(bit_widths, (1, len(layers)))[:, np.argmax(below_or_equal, axis=0)]
+    
+    return min_req_bits.squeeze(), failure_rate_fp_model
 
 
 def explore_data(
@@ -740,7 +744,7 @@ def main():
             data_per_code_sz.append((failure_rate, failure_rate_fp_model))
 
         elif experiment == "weights_per_layer":
-            failure_rate, failure_rate_fp_model = explore_weights_per_layer(
+            min_req_bit, failure_rate_fp_model = explore_weights_per_layer(
                 float_model,
                 code_sz,
                 reps,
@@ -753,7 +757,7 @@ def main():
                 seed=seed,
                 device=device,
             )
-            data_per_code_sz.append((failure_rate, failure_rate_fp_model))
+            data_per_code_sz.append((min_req_bit, failure_rate_fp_model))
         else:
             print("You need to provide a valid experiment.")
             return
@@ -818,28 +822,19 @@ def main():
         ax.set_xticks(range(len(labels)), labels, rotation=90)
         # ax.set_xticklabels(labels)
         for i, data in enumerate(data_per_code_sz):
-            failure_rate, failure_rate_fp_model = data
+            min_req_bit, failure_rate_fp_model = data
             x = range(len(labels))
-            ax.axhline(
-                failure_rate_fp_model,
-                0,
-                max(x),
-                linestyle="--",
-                color=colors[i],
-                label=f"FP32 logical failure rate, d={code_sz[i]}",
-            )
-            ax.semilogy(
+            ax.plot(
                 x,
-                failure_rate,
+                min_req_bit,
                 color=colors[i],
                 label=f"d = {code_sz[i]}",
             )
         ax.legend(loc="upper left")
-        ax.set_ylabel("Logical failure rate")
+        ax.set_ylabel("Minimum required bits to reach accuracy of FP32")
         ax.set_title("Quantization of weights per layer")
         fig.tight_layout()
         fig.savefig(f"../figures/bit_accuracies_per_layer.pdf")
-
 
 if __name__ == "__main__":
     main()
