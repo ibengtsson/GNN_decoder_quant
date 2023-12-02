@@ -267,6 +267,7 @@ def run_inference(
     loader: DataLoader = None,
     syndromes: np.ndarray = None,
     flips: np.ndarray = None,
+    m_nearest_nodes: int = 5,
     device: torch.device = torch.device("cpu"),
 ) -> int:
     sigmoid = nn.Sigmoid()
@@ -295,7 +296,7 @@ def run_inference(
         else:
             x, edge_index, edge_attr, batch_label = get_batch_of_graphs(
                 syndromes,
-                5,
+                m_nearest_nodes,
                 device=device,
             )
             out = model(
