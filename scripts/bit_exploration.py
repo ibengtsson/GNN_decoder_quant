@@ -175,8 +175,8 @@ def explore_weights(
             q_errors[count] = np.linalg.norm(all_weights - dq_weights)
             count += 1
 
-    # add final floating point predictions
-    float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        # add final floating point predictions
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -306,8 +306,8 @@ def explore_fixed_pt_weights(
             q_errors[count] = np.linalg.norm(all_weights - dq_weights)
             count += 1
 
-    # add final floating point predictions
-    float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        # add final floating point predictions
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -472,8 +472,8 @@ def explore_weights_per_layer(
                 bit_count += 1
             layer_count += 1
 
-    # add final floating point predictions
-    float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        # add final floating point predictions
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = ((
@@ -625,8 +625,8 @@ def explore_data(
                     bit_predictions_data[count, 0] += int((prediction == target).sum())
                     count += 1
 
-    # add final floating point predictions
-    float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        # add final floating point predictions
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
