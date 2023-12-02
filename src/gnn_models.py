@@ -4,6 +4,7 @@ from torch.nn import Linear, ModuleList
 from torch import nn
 from torch_geometric.nn import global_mean_pool, GraphConv, DenseGraphConv
 from torch_geometric.utils import to_dense_adj, to_dense_batch
+from src.utils import quantize_tensor, dequantize_tensor, get_scale, get_zero_pt
 
 
 class GNN_7(torch.nn.Module):
@@ -246,8 +247,8 @@ class QGNN_7(torch.nn.Module):
 
     def __init__(
         self,
-        hidden_channels_GCN=(32, 128, 256, 512, 512, 256, 256),
-        hidden_channels_MLP=(256, 128, 64),
+        hidden_channels_GCN=[32, 128, 256, 512, 512, 256, 256],
+        hidden_channels_MLP=[256, 128, 64],
         num_node_features=5,
         num_classes=1,
         manual_seed=12345,
@@ -257,136 +258,67 @@ class QGNN_7(torch.nn.Module):
         if manual_seed is not None:
             torch.manual_seed(manual_seed)
             
-        # q
-            
         # GCN layers
-        self.graph1 = GraphConv(num_node_features, hidden_channels_GCN[0])
-        self.graph2 = GraphConv(hidden_channels_GCN[0], hidden_channels_GCN[1])
-        self.graph3 = GraphConv(hidden_channels_GCN[1], hidden_channels_GCN[2])
-        self.graph4 = GraphConv(hidden_channels_GCN[2], hidden_channels_GCN[3])
-        self.graph5 = GraphConv(hidden_channels_GCN[3], hidden_channels_GCN[4])
-        self.graph6 = GraphConv(hidden_channels_GCN[4], hidden_channels_GCN[5])
-        self.graph7 = GraphConv(hidden_channels_GCN[5], hidden_channels_GCN[6])
+        channels = [num_node_features] + hidden_channels_GCN
+        self.graph_layers = nn.ModuleList([GraphConv(in_channels, out_channels) for (in_channels, out_channels) in zip(channels[:-1], channels[1:])])
         
-        # Layers for graph embedding classifier
-        self.lin1 = Linear(hidden_channels_GCN[6], hidden_channels_MLP[0])
-        self.lin2 = Linear(hidden_channels_MLP[0], hidden_channels_MLP[1])
-        self.lin3 = Linear(hidden_channels_MLP[1], hidden_channels_MLP[2])
-        self.lin4 = Linear(hidden_channels_MLP[2], num_classes)
-    
-    def forward(self, x, edge_index, edge_attr, batch):
+        # Dense layers
+        channels = hidden_channels_GCN[-1:] + hidden_channels_MLP
+        self.dense_layers = nn.ModuleList([Linear(in_channels, out_channels) for (in_channels, out_channels) in zip(channels[:-1], channels[1:])])
         
-        # x = batch.x
-        # edge_index = batch.edge_index
-        # edge_attr = batch.edge_attr
-        # batch = batch.batch
-        
-        # Obtain node embeddings
-        x = self.graph1(x, edge_index, edge_weight=edge_attr)
-        x = torch.nn.functional.relu(x, inplace=True)
-        
-        scale = self.get_scale(x.min(), x.max(), 8)
-        zero_pt = self.get_zero_pt(x.max(), scale, 8)
-        x = self.quantize_tensor(x, scale, zero_pt)
-        
-        scale = self.get_scale(edge_attr.min(), edge_attr.max(), 8)
-        zero_pt = self.get_zero_pt(edge_attr.max(), scale, 8)
-        edge_attr = self.quantize_tensor(edge_attr, scale, zero_pt)       
-        
-        x = self.graph2(x, edge_index, edge_weight=edge_attr)
-        x = torch.nn.functional.relu(x, inplace=True)
-        
-        scale = self.get_scale(x.min(), x.max(), 8)
-        zero_pt = self.get_zero_pt(x.max(), scale, 8)
-        x = self.quantize_tensor(x, scale, zero_pt)
-        
-        scale = self.get_scale(edge_attr.min(), edge_attr.max(), 8)
-        zero_pt = self.get_zero_pt(edge_attr.max(), scale, 8)
-        edge_attr = self.quantize_tensor(edge_attr, scale, zero_pt)
-        
-        x = self.graph3(x, edge_index, edge_weight=edge_attr)
-        x = torch.nn.functional.relu(x, inplace=True)
-        
-        scale = self.get_scale(x.min(), x.max(), 8)
-        zero_pt = self.get_zero_pt(x.max(), scale, 8)
-        x = self.quantize_tensor(x, scale, zero_pt)
-        
-        scale = self.get_scale(edge_attr.min(), edge_attr.max(), 8)
-        zero_pt = self.get_zero_pt(edge_attr.max(), scale, 8)
-        edge_attr = self.quantize_tensor(edge_attr, scale, zero_pt)
-    
-        x = self.graph4(x, edge_index, edge_weight=edge_attr)
-        x = torch.nn.functional.relu(x, inplace=True)
-        
-        scale = self.get_scale(x.min(), x.max(), 8)
-        zero_pt = self.get_zero_pt(x.max(), scale, 8)
-        x = self.quantize_tensor(x, scale, zero_pt)
-        
-        scale = self.get_scale(edge_attr.min(), edge_attr.max(), 8)
-        zero_pt = self.get_zero_pt(edge_attr.max(), scale, 8)
-        edge_attr = self.quantize_tensor(edge_attr, scale, zero_pt)
-        
-        x = self.graph5(x, edge_index, edge_weight=edge_attr)
-        x = torch.nn.functional.relu(x, inplace=True)
-        
-        scale = self.get_scale(x.min(), x.max(), 8)
-        zero_pt = self.get_zero_pt(x.max(), scale, 8)
-        x = self.quantize_tensor(x, scale, zero_pt)
-        
-        scale = self.get_scale(edge_attr.min(), edge_attr.max(), 8)
-        zero_pt = self.get_zero_pt(edge_attr.max(), scale, 8)
-        edge_attr = self.quantize_tensor(edge_attr, scale, zero_pt)
-        
-        x = self.graph6(x, edge_index, edge_weight=edge_attr)
-        x = torch.nn.functional.relu(x, inplace=True)
-        
-        scale = self.get_scale(x.min(), x.max(), 8)
-        zero_pt = self.get_zero_pt(x.max(), scale, 8)
-        x = self.quantize_tensor(x, scale, zero_pt)
-        
-        scale = self.get_scale(edge_attr.min(), edge_attr.max(), 8)
-        zero_pt = self.get_zero_pt(edge_attr.max(), scale, 8)
-        edge_attr = self.quantize_tensor(edge_attr, scale, zero_pt)
-        
-        x = self.graph7(x, edge_index, edge_weight=edge_attr)
-        x = torch.nn.functional.relu(x, inplace=True)
-        
-        scale = self.get_scale(x.min(), x.max(), 8)
-        zero_pt = self.get_zero_pt(x.max(), scale, 8)
-        x = self.quantize_tensor(x, scale, zero_pt)
-        
-        scale = self.get_scale(edge_attr.min(), edge_attr.max(), 8)
-        zero_pt = self.get_zero_pt(edge_attr.max(), scale, 8)
-        edge_attr = self.quantize_tensor(edge_attr, scale, zero_pt)
+        # Output later
+        self.output_layer = Linear(hidden_channels_MLP[-1], num_classes)
 
-        # obtain graph embedding
-        x = global_mean_pool(x, batch).char()
-        scale = self.get_scale(x.min(), x.max(), 8)
-        zero_pt = self.get_zero_pt(x.max(), scale, 8)
-        x = self.quantize_tensor(x, scale, zero_pt)
+    def forward(self, x, edge_index, edge_attr, batch, bit_width):
+         
+        #  node embeddings
+        for layer in self.graph_layers:
+            
+            # quantize and dequantize data
+            data = torch.cat((x.flatten(), edge_attr.flatten()))
+            lower_limit = data.min()
+            upper_limit = data.max()
+            
+            scale = get_scale(lower_limit, upper_limit, bit_width)
+            zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+            x = quantize_tensor(x, scale, zero_pt, bit_width)
+            x = dequantize_tensor(x, scale, zero_pt)
+            
+            edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
+            edge_attr = dequantize_tensor(edge_attr, scale, zero_pt)
+            
+            x = layer(x, edge_index, edge_weight=edge_attr)
+            x = torch.nn.functional.relu(x, inplace=True)
         
-        # Apply X(Z) classifier
-        X = self.lin1(x)
-        X = torch.nn.functional.relu(X, inplace=True)
-        scale = self.get_scale(X.min(), X.max(), 8)
-        zero_pt = self.get_zero_pt(X.max(), scale, 8)
-        x = self.quantize_tensor(X, scale, zero_pt)
+        # graph embedding
+        x = global_mean_pool(x, batch)
         
-        X = self.lin2(X)
-        X = torch.nn.functional.relu(X, inplace=True)
-        scale = self.get_scale(X.min(), X.max(), 8)
-        zero_pt = self.get_zero_pt(X.max(), scale, 8)
-        x = self.quantize_tensor(X, scale, zero_pt)
+        for layer in self.dense_layers:
+            # quantize and dequantize data
+            data = torch.cat((x.flatten(), edge_attr.flatten()))
+            lower_limit = data.min()
+            upper_limit = data.max()
+            scale = get_scale(lower_limit, upper_limit, bit_width)
+            zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+            x = quantize_tensor(x, scale, zero_pt, bit_width)
+            x = dequantize_tensor(x, scale, zero_pt)
+            
+            x = layer(x)
+            x = torch.nn.functional.relu(x, inplace=True)
         
-        X = self.lin3(X)
-        X = torch.nn.functional.relu(X, inplace=True)
-        scale = self.get_scale(X.min(), X.max(), 8)
-        zero_pt = self.get_zero_pt(X.max(), scale, 8)
-        x = self.quantize_tensor(X, scale, zero_pt)
+        # quantize and dequantize data
+        data = torch.cat((x.flatten(), edge_attr.flatten()))
+        lower_limit = data.min()
+        upper_limit = data.max()
+        scale = get_scale(lower_limit, upper_limit, bit_width)
+        zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+        x = quantize_tensor(x, scale, zero_pt, bit_width)
+        x = dequantize_tensor(x, scale, zero_pt)
         
-        X = self.lin4(X)
-
-        return X
+        # output
+        x = self.output_layer(x)
+        
+        return x
 
 class RecurrentGNN(torch.nn.Module):
     def __init__(
