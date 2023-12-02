@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
+import argparse
 
-from tqdm import tqdm
 from pathlib import Path
 import sys
 
@@ -12,7 +12,7 @@ sys.path.append("..")
 
 from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_3D_graph
-from src.gnn_models import GNN_7
+from src.gnn_models import GNN_7, QGNN_7
 from src.utils import (
     match_and_load_state_dict,
     get_scale,
@@ -114,7 +114,7 @@ def explore_weights(
             dequantize_model_layers(model, scale, zero_pt)
 
             # run inference and add #correct predictions to data array
-            bit_predictions_data[count, 0] += run_inference(model, loader, device)
+            bit_predictions_data[count, 0] += run_inference(model, loader, device=device)
 
             # save quantization error
             dq_weights = get_all_weights(model)
@@ -122,60 +122,61 @@ def explore_weights(
             count += 1
 
         # before running next partition we check how the floating point model performs
-        float_predictions_data[0] += run_inference(float_model, loader, device)
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # run the remaining parts
-    sim = SurfaceCodeSim(
-        reps,
-        code_sz,
-        p,
-        n_shots=remaining,
-        seed=seed - 1,
-    )
-
-    # generate syndromes and save number of trivial syndromes
-    syndromes, flips, n_identities = sim.generate_syndromes()
-    bit_predictions_data[:, 1] += n_identities
-    float_predictions_data[1] += n_identities
-
-    graphs = []
-    for syndrome, flip in zip(syndromes, flips):
-        x, edge_index, edge_attr, y = get_3D_graph(
-            syndrome_3D=syndrome,
-            target=flip,
-            m_nearest_nodes=m_nearest_nodes,
-            power=2.0,
+    if remaining > 0:
+        sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            p,
+            n_shots=remaining,
+            seed=seed - 1,
         )
-        graphs.append(Data(x, edge_index, edge_attr, y))
-    loader = DataLoader(graphs, batch_size=batch_size)
 
-    count = 0
-    for bit_width in bit_widths:
-        # load model and quantize/dequantize it to the given bit_width
-        model = GNN_7().to(device)
-        model.load_state_dict(float_model.state_dict())
-        scale = get_scale(lower_limit, upper_limit, bit_width)
-        zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+        # generate syndromes and save number of trivial syndromes
+        syndromes, flips, n_identities = sim.generate_syndromes()
+        bit_predictions_data[:, 1] += n_identities
+        float_predictions_data[1] += n_identities
 
-        scale, zero_pt = quantize_model_layers(
-            model,
-            bit_width,
-            scale=scale,
-            zero_pt=zero_pt,
-            same_quantization=True,
-        )
-        dequantize_model_layers(model, scale, zero_pt)
+        graphs = []
+        for syndrome, flip in zip(syndromes, flips):
+            x, edge_index, edge_attr, y = get_3D_graph(
+                syndrome_3D=syndrome,
+                target=flip,
+                m_nearest_nodes=m_nearest_nodes,
+                power=2.0,
+            )
+            graphs.append(Data(x, edge_index, edge_attr, y))
+        loader = DataLoader(graphs, batch_size=batch_size)
 
-        # run inference and add #correct predictions to data array
-        bit_predictions_data[count, 0] += run_inference(model, loader, device)
+        count = 0
+        for bit_width in bit_widths:
+            # load model and quantize/dequantize it to the given bit_width
+            model = GNN_7().to(device)
+            model.load_state_dict(float_model.state_dict())
+            scale = get_scale(lower_limit, upper_limit, bit_width)
+            zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
 
-        # save quantization error
-        dq_weights = get_all_weights(model)
-        q_errors[count] = np.linalg.norm(all_weights - dq_weights)
-        count += 1
+            scale, zero_pt = quantize_model_layers(
+                model,
+                bit_width,
+                scale=scale,
+                zero_pt=zero_pt,
+                same_quantization=True,
+            )
+            dequantize_model_layers(model, scale, zero_pt)
+
+            # run inference and add #correct predictions to data array
+            bit_predictions_data[count, 0] += run_inference(model, loader, device=device)
+
+            # save quantization error
+            dq_weights = get_all_weights(model)
+            q_errors[count] = np.linalg.norm(all_weights - dq_weights)
+            count += 1
 
     # add final floating point predictions
-    float_predictions_data[0] += run_inference(float_model, loader, device)
+    float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -185,6 +186,7 @@ def explore_weights(
     failure_rate_fp_model = (n_graphs - float_predictions_data.sum()) / n_graphs
 
     return failure_rate, failure_rate_fp_model, q_errors
+
 
 def explore_fixed_pt_weights(
     float_model: nn.Module,
@@ -200,7 +202,6 @@ def explore_fixed_pt_weights(
     seed: int = None,
     device: torch.device = torch.device("cuda"),
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    
     # get weights in FP32
     all_weights = get_all_weights(float_model)
 
@@ -246,7 +247,6 @@ def explore_fixed_pt_weights(
 
         count = 0
         for bit_width in bit_widths:
-            
             # load model and quantize/dequantize it to the given fixed bit_width
             model = GNN_7().to(device)
             model.load_state_dict(float_model.state_dict())
@@ -254,7 +254,7 @@ def explore_fixed_pt_weights(
             fixed_precision_model_layers(model, bit_width)
 
             # run inference and add #correct predictions to data array
-            bit_predictions_data[count, 0] += run_inference(model, loader, device)
+            bit_predictions_data[count, 0] += run_inference(model, loader, device=device)
 
             # save quantization error
             dq_weights = get_all_weights(model)
@@ -262,52 +262,52 @@ def explore_fixed_pt_weights(
             count += 1
 
         # before running next partition we check how the floating point model performs
-        float_predictions_data[0] += run_inference(float_model, loader, device)
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # run the remaining parts
-    sim = SurfaceCodeSim(
-        reps,
-        code_sz,
-        p,
-        n_shots=remaining,
-        seed=seed - 1,
-    )
-
-    # generate syndromes and save number of trivial syndromes
-    syndromes, flips, n_identities = sim.generate_syndromes()
-    bit_predictions_data[:, 1] += n_identities
-    float_predictions_data[1] += n_identities
-
-    graphs = []
-    for syndrome, flip in zip(syndromes, flips):
-        x, edge_index, edge_attr, y = get_3D_graph(
-            syndrome_3D=syndrome,
-            target=flip,
-            m_nearest_nodes=m_nearest_nodes,
-            power=2.0,
+    if remaining > 0:
+        sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            p,
+            n_shots=remaining,
+            seed=seed - 1,
         )
-        graphs.append(Data(x, edge_index, edge_attr, y))
-    loader = DataLoader(graphs, batch_size=batch_size)
 
-    count = 0
-    for bit_width in bit_widths:
-        
-        # load model and quantize/dequantize it to the given bit_width
-        model = GNN_7().to(device)
-        model.load_state_dict(float_model.state_dict())
+        # generate syndromes and save number of trivial syndromes
+        syndromes, flips, n_identities = sim.generate_syndromes()
+        bit_predictions_data[:, 1] += n_identities
+        float_predictions_data[1] += n_identities
 
-        fixed_precision_model_layers(model, bit_width)
+        graphs = []
+        for syndrome, flip in zip(syndromes, flips):
+            x, edge_index, edge_attr, y = get_3D_graph(
+                syndrome_3D=syndrome,
+                target=flip,
+                m_nearest_nodes=m_nearest_nodes,
+                power=2.0,
+            )
+            graphs.append(Data(x, edge_index, edge_attr, y))
+        loader = DataLoader(graphs, batch_size=batch_size)
 
-        # run inference and add #correct predictions to data array
-        bit_predictions_data[count, 0] += run_inference(model, loader, device)
+        count = 0
+        for bit_width in bit_widths:
+            # load model and quantize/dequantize it to the given bit_width
+            model = GNN_7().to(device)
+            model.load_state_dict(float_model.state_dict())
 
-        # save quantization error
-        dq_weights = get_all_weights(model)
-        q_errors[count] = np.linalg.norm(all_weights - dq_weights)
-        count += 1
+            fixed_precision_model_layers(model, bit_width)
+
+            # run inference and add #correct predictions to data array
+            bit_predictions_data[count, 0] += run_inference(model, loader, device=device)
+
+            # save quantization error
+            dq_weights = get_all_weights(model)
+            q_errors[count] = np.linalg.norm(all_weights - dq_weights)
+            count += 1
 
     # add final floating point predictions
-    float_predictions_data[0] += run_inference(float_model, loader, device)
+    float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -340,11 +340,17 @@ def explore_weights_per_layer(
 
     # create list of layers to quantize
     all_names = list(float_model.state_dict().keys())
-    layers = np.array([name for name in all_names if "graph" in name])
-    linear_keys = np.array([name for name in all_names if not "graph" in name])
-    layers = layers.reshape(-1, 3).tolist()
-    linear_keys = linear_keys.reshape(-1, 2).tolist()
-    layers.extend(linear_keys)
+    graph_weights = (
+        np.array([name for name in all_names if "graph" in name and "weight" in name])
+        .reshape(-1, 2)
+        .tolist()
+    )
+    graph_bias = [[name] for name in all_names if "graph" in name and "bias" in name]
+    lin_weights = [
+        [name] for name in all_names if not "graph" in name and "weight" in name
+    ]
+    lin_bias = [[name] for name in all_names if not "graph" in name and "bias" in name]
+    layers = graph_weights + graph_bias + lin_weights + lin_bias
 
     # collect data for all iterations
     layer_predictions_data = np.zeros((len(layers), 2))
@@ -403,61 +409,62 @@ def explore_weights_per_layer(
             dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
 
             # run inference and add #correct predictions to data array
-            layer_predictions_data[count, 0] += run_inference(model, loader, device)
+            layer_predictions_data[count, 0] += run_inference(model, loader, device=device)
             count += 1
 
         # before running next partition we check how the floating point model performs
-        float_predictions_data[0] += run_inference(float_model, loader, device)
-
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        
     # run the remaining parts
-    sim = SurfaceCodeSim(
-        reps,
-        code_sz,
-        p,
-        n_shots=remaining,
-        seed=seed - 1,
-    )
-
-    # generate syndromes and save number of trivial syndromes
-    syndromes, flips, n_identities = sim.generate_syndromes()
-    layer_predictions_data[:, 1] += n_identities
-    float_predictions_data[1] += n_identities
-
-    graphs = []
-    for syndrome, flip in zip(syndromes, flips):
-        x, edge_index, edge_attr, y = get_3D_graph(
-            syndrome_3D=syndrome,
-            target=flip,
-            m_nearest_nodes=m_nearest_nodes,
-            power=2.0,
+    if remaining > 0:
+        sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            p,
+            n_shots=remaining,
+            seed=seed - 1,
         )
-        graphs.append(Data(x, edge_index, edge_attr, y))
-    loader = DataLoader(graphs, batch_size=batch_size)
 
-    count = 0
-    for layer in layers:
-        # load model and quantize/dequantize it to the given bit_width
-        model = GNN_7().to(device)
-        model.load_state_dict(float_model.state_dict())
-        scale = get_scale(lower_limit, upper_limit, bit_width)
-        zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+        # generate syndromes and save number of trivial syndromes
+        syndromes, flips, n_identities = sim.generate_syndromes()
+        layer_predictions_data[:, 1] += n_identities
+        float_predictions_data[1] += n_identities
 
-        scale, zero_pt = quantize_model_layers(
-            model,
-            bit_width,
-            scale=scale,
-            zero_pt=zero_pt,
-            layer_names=layer,
-            same_quantization=True,
-        )
-        dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
+        graphs = []
+        for syndrome, flip in zip(syndromes, flips):
+            x, edge_index, edge_attr, y = get_3D_graph(
+                syndrome_3D=syndrome,
+                target=flip,
+                m_nearest_nodes=m_nearest_nodes,
+                power=2.0,
+            )
+            graphs.append(Data(x, edge_index, edge_attr, y))
+        loader = DataLoader(graphs, batch_size=batch_size)
 
-        # run inference and add #correct predictions to data array
-        layer_predictions_data[count, 0] += run_inference(model, loader, device)
-        count += 1
+        count = 0
+        for layer in layers:
+            # load model and quantize/dequantize it to the given bit_width
+            model = GNN_7().to(device)
+            model.load_state_dict(float_model.state_dict())
+            scale = get_scale(lower_limit, upper_limit, bit_width)
+            zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+
+            scale, zero_pt = quantize_model_layers(
+                model,
+                bit_width,
+                scale=scale,
+                zero_pt=zero_pt,
+                layer_names=layer,
+                same_quantization=True,
+            )
+            dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
+
+            # run inference and add #correct predictions to data array
+            layer_predictions_data[count, 0] += run_inference(model, loader, device=device)
+            count += 1
 
     # add final floating point predictions
-    float_predictions_data[0] += run_inference(float_model, loader, device)
+    float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -470,7 +477,7 @@ def explore_weights_per_layer(
 
 
 def explore_data(
-    model: nn.Module,
+    float_model: nn.Module,
     code_sz: int,
     reps: int,
     p: float,
@@ -483,12 +490,11 @@ def explore_data(
     seed: int = None,
     device: torch.device = torch.device("cuda"),
 ) -> list[tuple[np.ndarray, np.ndarray]]:
+    
     # collect data for all iterations
     bit_widths = np.arange(min_bits, max_bits + 1, step=2, dtype=np.int64)
     bit_predictions_data = np.zeros((len(bit_widths), 2))
     float_predictions_data = np.zeros((2, 1))
-    q_errors = np.zeros((len(bit_widths), 1))
-    q_batch_error = []
 
     # if we want to generate many graphs, do so in chunks
     if n_graphs > n_graphs_per_sim:
@@ -497,7 +503,11 @@ def explore_data(
     else:
         n_partitions = 0
         remaining = n_graphs
-
+        
+    # create model to do data quantization
+    model = QGNN_7()
+    model.load_state_dict(float_model.state_dict())
+    
     # go through partitions
     sigmoid = nn.Sigmoid()
     for i in range(n_partitions):
@@ -527,117 +537,82 @@ def explore_data(
 
         with torch.no_grad():
             for batch in loader:
+                
                 # unzip data
                 x = batch.x.to(device)
                 edge_index = batch.edge_index.to(device)
                 edge_attr = batch.edge_attr.to(device)
                 batch_label = batch.batch.to(device)
 
-                # quantize and dequantize data
-                data = np.concatenate(
-                    [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
-                )
-                lower_limit = torch.tensor(data.min())
-                upper_limit = torch.tensor(data.max())
-
                 count = 0
                 for bit_width in bit_widths:
-                    scale = get_scale(lower_limit, upper_limit, bit_width)
-                    zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
-                    qx = quantize_tensor(x, scale, zero_pt, bit_width)
-                    rx = dequantize_tensor(qx, scale, zero_pt)
-                    q_edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
-                    r_edge_attr = dequantize_tensor(q_edge_attr, scale, zero_pt)
-
-                    dq_data = np.concatenate(
-                        [rx.cpu().numpy().flatten(), r_edge_attr.cpu().numpy().flatten()]
-                    )
-                    q_errors[count] = np.linalg.norm(data - dq_data)
 
                     out = model(
-                        rx,
+                        x,
                         edge_index,
-                        r_edge_attr,
+                        edge_attr,
                         batch_label,
+                        bit_width
                     )
                     prediction = (sigmoid(out.detach()) > 0.5).long()
                     target = batch.y.to(device).int()
                     bit_predictions_data[count, 0] += int((prediction == target).sum())
                     count += 1
 
-                q_batch_error.append(q_errors)
-
-        float_predictions_data[0] += run_inference(model, loader, device)
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # run the remaining parts
-    sim = SurfaceCodeSim(
-        reps,
-        code_sz,
-        p,
-        n_shots=remaining,
-        seed=seed - 1,
-    )
-
-    # generate syndromes and save number of trivial syndromes
-    syndromes, flips, n_identities = sim.generate_syndromes()
-    bit_predictions_data[:, 1] += n_identities
-    float_predictions_data[1] += n_identities
-
-    graphs = []
-    for syndrome, flip in zip(syndromes, flips):
-        x, edge_index, edge_attr, y = get_3D_graph(
-            syndrome_3D=syndrome,
-            target=flip,
-            m_nearest_nodes=m_nearest_nodes,
-            power=2.0,
+    if remaining > 0:
+        sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            p,
+            n_shots=remaining,
+            seed=seed - 1,
         )
-        graphs.append(Data(x, edge_index, edge_attr, y))
-    loader = DataLoader(graphs, batch_size=batch_size)
 
-    count = 0
-    with torch.no_grad():
-        for batch in loader:
-            # unzip data
-            x = batch.x.to(device)
-            edge_index = batch.edge_index.to(device)
-            edge_attr = batch.edge_attr.to(device)
-            batch_label = batch.batch.to(device)
+        # generate syndromes and save number of trivial syndromes
+        syndromes, flips, n_identities = sim.generate_syndromes()
+        bit_predictions_data[:, 1] += n_identities
+        float_predictions_data[1] += n_identities
 
-            # quantize and dequantize data
-            data = np.concatenate(
-                [x.cpu().numpy().flatten(), edge_attr.cpu().numpy().flatten()]
+        graphs = []
+        for syndrome, flip in zip(syndromes, flips):
+            x, edge_index, edge_attr, y = get_3D_graph(
+                syndrome_3D=syndrome,
+                target=flip,
+                m_nearest_nodes=m_nearest_nodes,
+                power=2.0,
             )
-            lower_limit = torch.tensor(data.min())
-            upper_limit = torch.tensor(data.max())
+            graphs.append(Data(x, edge_index, edge_attr, y))
+        loader = DataLoader(graphs, batch_size=batch_size)
 
-            count = 0
-            for bit_width in bit_widths:
-                scale = get_scale(lower_limit, upper_limit, bit_width)
-                zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
-                qx = quantize_tensor(x, scale, zero_pt, bit_width)
-                rx = dequantize_tensor(qx, scale, zero_pt)
-                q_edge_attr = quantize_tensor(edge_attr, scale, zero_pt, bit_width)
-                r_edge_attr = dequantize_tensor(q_edge_attr, scale, zero_pt)
+        count = 0
+        with torch.no_grad():
+            for batch in loader:
+                # unzip data
+                x = batch.x.to(device)
+                edge_index = batch.edge_index.to(device)
+                edge_attr = batch.edge_attr.to(device)
+                batch_label = batch.batch.to(device)
 
-                dq_data = np.concatenate(
-                    [rx.cpu().numpy().flatten(), r_edge_attr.cpu().numpy().flatten()]
-                )
-                q_errors[count] = np.linalg.norm(data - dq_data)
+                count = 0
+                for bit_width in bit_widths:
 
-                out = model(
-                    rx,
-                    edge_index,
-                    r_edge_attr,
-                    batch_label,
-                )
-                prediction = (sigmoid(out.detach()) > 0.5).long()
-                target = batch.y.to(device).int()
-                bit_predictions_data[count, 0] += int((prediction == target).sum())
-                count += 1
+                    out = model(
+                        x,
+                        edge_index,
+                        edge_attr,
+                        batch_label,
+                        bit_width,
+                    )
+                    prediction = (sigmoid(out.detach()) > 0.5).long()
+                    target = batch.y.to(device).int()
+                    bit_predictions_data[count, 0] += int((prediction == target).sum())
+                    count += 1
 
-            q_batch_error.append(q_errors)
     # add final floating point predictions
-    float_predictions_data[0] += run_inference(model, loader, device)
+    float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -646,13 +621,20 @@ def explore_data(
     ) / n_graphs
     failure_rate_fp_model = (n_graphs - float_predictions_data.sum()) / n_graphs
 
-    q_batch_error = np.array(q_batch_error).mean(axis=0)
-    return failure_rate, failure_rate_fp_model, q_batch_error
+    return failure_rate, failure_rate_fp_model
 
 
 def main():
-    experiment = "fixed_pt"
-
+    
+    # command line parsing
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-e", "--experiment", required=True)
+    parser.add_argument("-n", "--n_graphs", required=False)
+    parser.add_argument("-ns", "--n_graphs_per_sim", required=False)
+    
+    args = parser.parse_args()   
+    experiment = args.experiment
+    
     paths = [
         Path("../models/circuit_level_noise/d3/d3_d_t_5.pt"),
         Path("../models/circuit_level_noise/d5/d5_d_t_5.pt"),
@@ -660,8 +642,16 @@ def main():
     ]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    n_graphs = int(1e7)
-    n_graphs_per_sim = int(1e5)
+    
+    if args.n_graphs:
+        n_graphs = int(args.n_graphs)
+    else: 
+        n_graphs = int(1e4)
+    
+    if args.n_graphs_per_sim:
+        n_graphs_per_sim = int(args.n_graphs_per_sim)
+    else: 
+        n_graphs_per_sim = int(1e4)
     batch_size = n_graphs_per_sim if "cuda" in device.type else 4000
     p = 1e-3
     min_bits = 2
@@ -704,11 +694,11 @@ def main():
                 seed=seed,
                 device=device,
             )
-            data_per_code_sz.append((failure_rate, failure_rate_fp_model, q_error))
+            data_per_code_sz.append((failure_rate, failure_rate_fp_model))
             print(f"Code size: {code_sz}, fr: {failure_rate_fp_model}")
 
         elif experiment == "data":
-            failure_rate, failure_rate_fp_model, q_error = explore_data(
+            failure_rate, failure_rate_fp_model = explore_data(
                 float_model,
                 code_sz,
                 reps,
@@ -721,10 +711,9 @@ def main():
                 seed=seed,
                 device=device,
             )
-            data_per_code_sz.append((failure_rate, failure_rate_fp_model, q_error))
-            
+            data_per_code_sz.append((failure_rate, failure_rate_fp_model))
+
         elif experiment == "fixed_pt":
-            
             failure_rate, failure_rate_fp_model, q_error = explore_fixed_pt_weights(
                 float_model,
                 code_sz,
@@ -738,8 +727,8 @@ def main():
                 seed=seed,
                 device=device,
             )
-            data_per_code_sz.append((failure_rate, failure_rate_fp_model, q_error))
-            
+            data_per_code_sz.append((failure_rate, failure_rate_fp_model))
+
         elif experiment == "weights_per_layer":
             bit_width = 10
             failure_rate, failure_rate_fp_model = explore_weights_per_layer(
@@ -759,16 +748,15 @@ def main():
             print("You need to provide a valid experiment.")
             return
 
-        
     if "layer" not in experiment:
         fig_acc, ax_acc = plt.subplots(figsize=(12, 8))
-        fig_qerr, ax_qerr = plt.subplots(figsize=(12, 8))
+        # fig_qerr, ax_qerr = plt.subplots(figsize=(12, 8))
 
         x = np.arange(min_bits, max_bits + 1, step=2)
         colors = ["r", "b", "g"]
         code_sz = [3, 5, 7]
         for i, data in enumerate(data_per_code_sz):
-            failure_rate, failure_rate_fp_model, q_error = data
+            failure_rate, failure_rate_fp_model = data
 
             ax_acc.axhline(
                 failure_rate_fp_model,
@@ -785,38 +773,43 @@ def main():
                 label=f"d = {code_sz[i]}",
             )
 
-            ax_qerr.semilogy(
-                x,
-                q_error,
-                color=colors[i],
-                label=f"d = {code_sz[i]}",
-            )
+            # ax_qerr.semilogy(
+            #     x,
+            #     q_error,
+            #     color=colors[i],
+            #     label=f"d = {code_sz[i]}",
+            # )
 
         ax_acc.set_xlabel("# bits")
         ax_acc.set_ylabel("Logical failure rate")
         ax_acc.legend(loc="upper right")
         ax_acc.set_title(f"Quantization to {experiment}")
 
-        ax_qerr.set_xlabel("# bits")
-        ax_qerr.set_ylabel("Quantization error")
-        ax_qerr.set_title(f"Quantization to {experiment}")
+        # ax_qerr.set_xlabel("# bits")
+        # ax_qerr.set_ylabel("Quantization error")
+        # ax_qerr.set_title(f"Quantization to {experiment}")
 
         fig_acc.tight_layout()
-        fig_qerr.tight_layout()
-
         fig_acc.savefig(f"../figures/bit_accuracies_{experiment}.pdf")
-        fig_qerr.savefig(f"../figures/bit_qerror_{experiment}.pdf")
-        
+        # fig_qerr.savefig(f"../figures/bit_qerror_{experiment}.pdf")
+
     else:
         fig, ax = plt.subplots(figsize=(12, 8))
-        x = range(1, 12)
-        layers = [f"Layer {i + 1}" for i in range(11)]
-        ax.set_xticks(range(1, 12))
-        ax.set_xticklabels(layers)
         colors = ["r", "b", "g"]
         code_sz = [3, 5, 7]
+        
+        graph_weight_labels = [f"Graph layer {n} - weights" for n in range(7)]
+        graph_bias_labels  = [f"Graph layer {n} - bias" for n in range(7)]
+        linear_weight_labels = [f"Linear layer {n} - weights" for n in range(3)]
+        linear_bias_labels = [f"Linear layer {n} - bias" for n in range(3)]
+        labels = (graph_weight_labels + graph_bias_labels + linear_weight_labels + linear_bias_labels)
+        labels.extend(["Output layer - weight", "Output layer - bias"])
+        
+        ax.set_xticks(range(len(labels)), labels, rotation=90)
+        # ax.set_xticklabels(labels)
         for i, data in enumerate(data_per_code_sz):
             failure_rate, failure_rate_fp_model = data
+            x = range(len(labels))
             ax.axhline(
                 failure_rate_fp_model,
                 0,
@@ -834,7 +827,9 @@ def main():
         ax.legend(loc="upper left")
         ax.set_ylabel("Logical failure rate")
         ax.set_title("Quantization of weights per layer")
+        fig.tight_layout()
         fig.savefig(f"../figures/bit_accuracies_per_layer.pdf")
+
 
 if __name__ == "__main__":
     main()
