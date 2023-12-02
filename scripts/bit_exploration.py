@@ -324,7 +324,8 @@ def explore_weights_per_layer(
     code_sz: int,
     reps: int,
     p: float,
-    bit_width: int,
+    min_bits: int,
+    max_bits: int,
     n_graphs: int,
     n_graphs_per_sim: int,
     m_nearest_nodes: int = 5,
@@ -332,6 +333,7 @@ def explore_weights_per_layer(
     seed: int = None,
     device: torch.device = torch.device("cuda"),
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    
     # get weights in FP32
     all_weights = get_all_weights(float_model)
     qt = 0.00
@@ -353,7 +355,8 @@ def explore_weights_per_layer(
     layers = graph_weights + graph_bias + lin_weights + lin_bias
 
     # collect data for all iterations
-    layer_predictions_data = np.zeros((len(layers), 2))
+    bit_widths = np.arange(min_bits, max_bits + 1, step=2, dtype=np.int64)
+    layer_predictions_data = np.zeros((len(bit_widths), len(layers), 2))
     float_predictions_data = np.zeros((2, 1))
 
     # if we want to generate many graphs, do so in chunks
@@ -376,7 +379,7 @@ def explore_weights_per_layer(
 
         # generate syndromes and save number of trivial syndromes
         syndromes, flips, n_identities = sim.generate_syndromes()
-        layer_predictions_data[:, 1] += n_identities
+        layer_predictions_data[..., 1] += n_identities
         float_predictions_data[1] += n_identities
 
         graphs = []
@@ -390,27 +393,30 @@ def explore_weights_per_layer(
             graphs.append(Data(x, edge_index, edge_attr, y))
         loader = DataLoader(graphs, batch_size=batch_size)
 
-        count = 0
+        layer_count = 0
         for layer in layers:
-            # load model and quantize/dequantize it to the given bit_width
-            model = GNN_7().to(device)
-            model.load_state_dict(float_model.state_dict())
-            scale = get_scale(lower_limit, upper_limit, bit_width)
-            zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+            bit_count = 0
+            for bit_width in bit_widths:
+                # load model and quantize/dequantize it to the given bit_width
+                model = GNN_7().to(device)
+                model.load_state_dict(float_model.state_dict())
+                scale = get_scale(lower_limit, upper_limit, bit_width)
+                zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
 
-            scale, zero_pt = quantize_model_layers(
-                model,
-                bit_width,
-                scale=scale,
-                zero_pt=zero_pt,
-                layer_names=layer,
-                same_quantization=True,
-            )
-            dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
+                scale, zero_pt = quantize_model_layers(
+                    model,
+                    bit_width,
+                    scale=scale,
+                    zero_pt=zero_pt,
+                    layer_names=layer,
+                    same_quantization=True,
+                )
+                dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
 
-            # run inference and add #correct predictions to data array
-            layer_predictions_data[count, 0] += run_inference(model, loader, device=device)
-            count += 1
+                # run inference and add #correct predictions to data array
+                layer_predictions_data[bit_count, layer_count, 0] += run_inference(model, loader, device=device)
+                bit_count += 1
+            layer_count += 1
 
         # before running next partition we check how the floating point model performs
         float_predictions_data[0] += run_inference(float_model, loader, device=device)
@@ -441,36 +447,40 @@ def explore_weights_per_layer(
             graphs.append(Data(x, edge_index, edge_attr, y))
         loader = DataLoader(graphs, batch_size=batch_size)
 
-        count = 0
+        layer_count = 0
         for layer in layers:
-            # load model and quantize/dequantize it to the given bit_width
-            model = GNN_7().to(device)
-            model.load_state_dict(float_model.state_dict())
-            scale = get_scale(lower_limit, upper_limit, bit_width)
-            zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+            bit_count = 0
+            for bit_width in bit_widths:
+                # load model and quantize/dequantize it to the given bit_width
+                model = GNN_7().to(device)
+                model.load_state_dict(float_model.state_dict())
+                scale = get_scale(lower_limit, upper_limit, bit_width)
+                zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
 
-            scale, zero_pt = quantize_model_layers(
-                model,
-                bit_width,
-                scale=scale,
-                zero_pt=zero_pt,
-                layer_names=layer,
-                same_quantization=True,
-            )
-            dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
+                scale, zero_pt = quantize_model_layers(
+                    model,
+                    bit_width,
+                    scale=scale,
+                    zero_pt=zero_pt,
+                    layer_names=layer,
+                    same_quantization=True,
+                )
+                dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
 
-            # run inference and add #correct predictions to data array
-            layer_predictions_data[count, 0] += run_inference(model, loader, device=device)
-            count += 1
+                # run inference and add #correct predictions to data array
+                layer_predictions_data[bit_count, layer_count, 0] += run_inference(model, loader, device=device)
+                bit_count += 1
+            layer_count += 1
 
     # add final floating point predictions
     float_predictions_data[0] += run_inference(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
-        np.ones((len(layers), 1)) * n_graphs
-        - layer_predictions_data.sum(axis=1, keepdims=True)
+        np.ones((len(bit_widths), len(layers), 1)) * n_graphs
+        - layer_predictions_data.sum(axis=-1, keepdims=True)
     ) / n_graphs
+    print(failure_rate.shape)
     failure_rate_fp_model = (n_graphs - float_predictions_data.sum()) / n_graphs
 
     return failure_rate, failure_rate_fp_model
@@ -505,7 +515,7 @@ def explore_data(
         remaining = n_graphs
         
     # create model to do data quantization
-    model = QGNN_7()
+    model = QGNN_7().to(device)
     model.load_state_dict(float_model.state_dict())
     
     # go through partitions
@@ -730,13 +740,13 @@ def main():
             data_per_code_sz.append((failure_rate, failure_rate_fp_model))
 
         elif experiment == "weights_per_layer":
-            bit_width = 10
             failure_rate, failure_rate_fp_model = explore_weights_per_layer(
                 float_model,
                 code_sz,
                 reps,
                 p,
-                bit_width,
+                min_bits,
+                max_bits,
                 n_graphs,
                 n_graphs_per_sim,
                 batch_size=batch_size,
