@@ -25,3 +25,6 @@ wandb
 # binary files:
 *.01
 *.b8
+
+# figures
+figures/*
