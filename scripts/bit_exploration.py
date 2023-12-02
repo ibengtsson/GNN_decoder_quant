@@ -669,7 +669,7 @@ def main():
     batch_size = n_graphs_per_sim if "cuda" in device.type else 4000
     p = 1e-3
     min_bits = 2
-    max_bits = 16
+    max_bits = 18
 
     # must use seed to make sure code distances are comparable
     seed = 747
@@ -797,7 +797,7 @@ def main():
         ax_acc.set_xlabel("# bits")
         ax_acc.set_ylabel("Logical failure rate")
         ax_acc.legend(loc="upper right")
-        ax_acc.set_title(f"Quantization to {experiment}")
+        ax_acc.set_title(f"Quantization of {experiment}")
 
         # ax_qerr.set_xlabel("# bits")
         # ax_qerr.set_ylabel("Quantization error")
