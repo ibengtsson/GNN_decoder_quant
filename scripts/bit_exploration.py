@@ -819,7 +819,10 @@ def main():
         labels = (graph_weight_labels + graph_bias_labels + linear_weight_labels + linear_bias_labels)
         labels.extend(["Output layer - weight", "Output layer - bias"])
         
-        ax.set_xticks(range(len(labels)), labels, rotation=90)
+        # ax.set_xticks(range(len(labels)), labels, rotation=90)
+        ax.set_xticks(range(len(labels)))
+        ax.set_xticklabels(labels)
+        plt.xticks(rotation=90)
         # ax.set_xticklabels(labels)
         for i, data in enumerate(data_per_code_sz):
             min_req_bit, failure_rate_fp_model = data
