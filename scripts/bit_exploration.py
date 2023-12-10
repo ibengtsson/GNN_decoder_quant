@@ -637,6 +637,184 @@ def explore_data(
 
     return failure_rate, failure_rate_fp_model
 
+def explore_data_and_weights(
+    float_model: nn.Module,
+    code_sz: int,
+    reps: int,
+    p: float,
+    min_bits: int,
+    max_bits: int,
+    n_graphs: int,
+    n_graphs_per_sim: int,
+    m_nearest_nodes: int = 5,
+    batch_size: int = 5000,
+    seed: int = None,
+    device: torch.device = torch.device("cuda"),
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    
+    # get weights in FP32
+    all_weights = get_all_weights(float_model)
+    qt = 0.00
+    lower_limit = torch.tensor(np.quantile(all_weights, qt))
+    upper_limit = torch.tensor(np.quantile(all_weights, 1 - qt))
+    
+    # collect data for all iterations
+    bit_widths = np.arange(min_bits, max_bits + 1, step=2, dtype=np.int64)
+    bit_predictions_data = np.zeros((len(bit_widths), 2))
+    float_predictions_data = np.zeros((2, 1))
+
+    # if we want to generate many graphs, do so in chunks
+    if n_graphs > n_graphs_per_sim:
+        n_partitions = n_graphs // n_graphs_per_sim
+        remaining = n_graphs % n_graphs_per_sim
+    else:
+        n_partitions = 0
+        remaining = n_graphs
+        
+    # go through partitions
+    sigmoid = nn.Sigmoid()
+    for i in range(n_partitions):
+        sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            p,
+            n_shots=n_graphs_per_sim,
+            seed=seed + i,
+        )
+
+        # generate syndromes and save number of trivial syndromes
+        syndromes, flips, n_identities = sim.generate_syndromes()
+        bit_predictions_data[:, 1] += n_identities
+        float_predictions_data[1] += n_identities
+
+        graphs = []
+        for syndrome, flip in zip(syndromes, flips):
+            x, edge_index, edge_attr, y = get_3D_graph(
+                syndrome_3D=syndrome,
+                target=flip,
+                m_nearest_nodes=m_nearest_nodes,
+                power=2.0,
+            )
+            graphs.append(Data(x, edge_index, edge_attr, y))
+        loader = DataLoader(graphs, batch_size=batch_size)
+
+        with torch.no_grad():
+            for batch in loader:
+                
+                # unzip data
+                x = batch.x.to(device)
+                edge_index = batch.edge_index.to(device)
+                edge_attr = batch.edge_attr.to(device)
+                batch_label = batch.batch.to(device)
+
+                count = 0
+                for bit_width in bit_widths:
+                    # create model to do data quantization
+                    model = QGNN_7().to(device)
+                    model.load_state_dict(float_model.state_dict())
+                    scale = get_scale(lower_limit, upper_limit, bit_width)
+                    zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+
+                    scale, zero_pt = quantize_model_layers(
+                        model,
+                        bit_width,
+                        scale=scale,
+                        zero_pt=zero_pt,
+                        same_quantization=True,
+                    )
+                    dequantize_model_layers(model, scale, zero_pt)
+                    
+                    out = model(
+                        x,
+                        edge_index,
+                        edge_attr,
+                        batch_label,
+                        bit_width
+                    )
+                    prediction = (sigmoid(out.detach()) > 0.5).long()
+                    target = batch.y.to(device).int()
+                    bit_predictions_data[count, 0] += int((prediction == target).sum())
+                    count += 1
+
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+
+    # run the remaining parts
+    if remaining > 0:
+        sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            p,
+            n_shots=remaining,
+            seed=seed - 1,
+        )
+
+        # generate syndromes and save number of trivial syndromes
+        syndromes, flips, n_identities = sim.generate_syndromes()
+        bit_predictions_data[:, 1] += n_identities
+        float_predictions_data[1] += n_identities
+
+        graphs = []
+        for syndrome, flip in zip(syndromes, flips):
+            x, edge_index, edge_attr, y = get_3D_graph(
+                syndrome_3D=syndrome,
+                target=flip,
+                m_nearest_nodes=m_nearest_nodes,
+                power=2.0,
+            )
+            graphs.append(Data(x, edge_index, edge_attr, y))
+        loader = DataLoader(graphs, batch_size=batch_size)
+
+        count = 0
+        with torch.no_grad():
+            for batch in loader:
+                # unzip data
+                x = batch.x.to(device)
+                edge_index = batch.edge_index.to(device)
+                edge_attr = batch.edge_attr.to(device)
+                batch_label = batch.batch.to(device)
+
+                count = 0
+                for bit_width in bit_widths:
+                    
+                    # create model to do data quantization
+                    model = QGNN_7().to(device)
+                    model.load_state_dict(float_model.state_dict())
+                    scale = get_scale(lower_limit, upper_limit, bit_width)
+                    zero_pt = get_zero_pt(lower_limit, upper_limit, bit_width)
+
+                    scale, zero_pt = quantize_model_layers(
+                        model,
+                        bit_width,
+                        scale=scale,
+                        zero_pt=zero_pt,
+                        same_quantization=True,
+                    )
+                    dequantize_model_layers(model, scale, zero_pt)
+                    
+                    out = model(
+                        x,
+                        edge_index,
+                        edge_attr,
+                        batch_label,
+                        bit_width,
+                    )
+                    prediction = (sigmoid(out.detach()) > 0.5).long()
+                    target = batch.y.to(device).int()
+                    bit_predictions_data[count, 0] += int((prediction == target).sum())
+                    count += 1
+
+        # add final floating point predictions
+        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+
+    # when all partitions are finished we can compute logical failure rates
+    failure_rate = (
+        np.ones((len(bit_widths), 1)) * n_graphs
+        - bit_predictions_data.sum(axis=1, keepdims=True)
+    ) / n_graphs
+    failure_rate_fp_model = (n_graphs - float_predictions_data.sum()) / n_graphs
+
+    return failure_rate, failure_rate_fp_model
+
 
 def main():
     
@@ -713,6 +891,22 @@ def main():
 
         elif experiment == "data":
             failure_rate, failure_rate_fp_model = explore_data(
+                float_model,
+                code_sz,
+                reps,
+                p,
+                min_bits,
+                max_bits,
+                n_graphs,
+                n_graphs_per_sim,
+                batch_size=batch_size,
+                seed=seed,
+                device=device,
+            )
+            data_per_code_sz.append((failure_rate, failure_rate_fp_model))
+            
+        elif experiment == "data_and_weights":
+            failure_rate, failure_rate_fp_model = explore_data_and_weights(
                 float_model,
                 code_sz,
                 reps,
