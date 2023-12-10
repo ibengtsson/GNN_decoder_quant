@@ -11,6 +11,7 @@ module purge
 source ~/scripts/load_env.sh
 
 # send script
-python3 ../scripts/bit_exploration.py -e "weights_per_layer" -n 10000000 -ns 100000
+python3 ../scripts/bit_exploration.py -e "data_and_weights" -n 10000000 -ns 100000
+# python3 ../scripts/bit_exploration.py -e "weights_per_layer" -n 10000000 -ns 100000
 # python3 ../scripts/bit_exploration.py -e "fixed_pt" -n 10000000 -ns 100000
 # python3 ../scripts/bit_exploration.py -e "data" -n 10000000 -ns 100000
