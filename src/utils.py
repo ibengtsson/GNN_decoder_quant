@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch_geometric.loader import DataLoader
-from graph_representation import get_batch_of_graphs
+from src.graph_representation import get_batch_of_graphs
 import numpy as np
 from collections import OrderedDict
 import matplotlib.pyplot as plt

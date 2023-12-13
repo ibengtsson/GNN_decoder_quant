@@ -1,33 +1,76 @@
 import torch
-from utils import parse_yaml, run_inference
-from gnn_models import GNN_7
-from simulations import SurfaceCodeSim
-from graph_representation import get_batch_of_graphs
-from icecream import ic
-from timeit import default_timer as timer
+from src.utils import parse_yaml, run_inference
+from src.gnn_models import GNN_7
+from src.simulations import SurfaceCodeSim
+from src.graph_representation import get_batch_of_graphs
+from pathlib import Path
+from datetime import datetime
 
 
 class Decoder:
     def __init__(self, yaml_config=None):
+        
         # load settings and initialise state
         paths, graph_settings, training_settings = parse_yaml(yaml_config)
-        self.save_dir = paths["save_dir"]
-        self.model_name = paths["model_name"]
+        self.save_dir = Path(paths["save_dir"])
+        self.saved_model_path = paths["saved_model_path"]
         self.graph_settings = graph_settings
         self.training_settings = training_settings
 
         # current training status
         self.epoch = training_settings["current_epoch"]
-        self.lr = training_settings["lr"]
         if training_settings["device"] == "cuda":
             self.device = torch.device(
-                training_settings["device"] + ":1" if torch.cuda.is_available() else "cpu"
+                training_settings["device"] if torch.cuda.is_available() else "cpu"
             )
         else:
             self.device = torch.device("cpu")
 
-        # instantiate model
+        # create a dictionary saving training metrics
+        training_history = {}
+        training_history["epoch"] = self.epoch
+        training_history["loss"] = []
+        training_history["failure_rate"] = []
+
+        self.training_history = training_history
+
+        # instantiate model and optimizer
         self.model = GNN_7().to(self.device)
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=training_settings["lr"]
+        )
+        
+        # generate a unique name to not overwrite other models
+        current_datetime = datetime.now().strftime("%y%m%d-%H%M%S") 
+        self.save_name = "model_" + current_datetime
+
+    def save_model_w_training_settings(self, model_name=None):
+        
+        # make sure path exists, else create it
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        if model_name is not None:
+            path = self.save_dir / (model_name + ".pt")
+        else:
+            path = self.save_dir / (self.save_name + ".pt")
+        
+        attributes = {
+            "training_history": self.training_history,
+            "model": self.model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+        }
+
+        torch.save(attributes, path)
+
+    def load_trained_model(self):
+        model_path = Path(self.saved_model_path)
+        saved_attributes = torch.load(model_path, map_location=self.device)
+
+        # update attributes and load model with trained weights
+        self.training_history = saved_attributes["training_history"]
+        self.epoch = saved_attributes["training_history"]["epoch"] + 1
+        self.model.load_state_dict(saved_attributes["model"])
+        self.optimizer.load_state_dict(saved_attributes["optimizer"])
+        self.save_name = model_path.name.split(sep=".")[0]
 
     def train(self):
         # training settings
@@ -36,7 +79,6 @@ class Decoder:
         dataset_size = self.training_settings["dataset_size"]
         batch_size = self.training_settings["batch_size"]
         n_batches = dataset_size // batch_size
-        opt = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         loss_fun = torch.nn.BCEWithLogitsLoss()
 
         # simulation settings
@@ -51,14 +93,14 @@ class Decoder:
         # generate validation syndromes
         val_syndromes, val_flips, n_val_identities = sim.generate_syndromes()
 
-        times = 0
-        for i in range(current_epoch, n_epochs):
+        for epoch in range(current_epoch, n_epochs):
+            
             epoch_loss = 0
             epoch_n_graphs = 0
-            for j in range(n_batches):
+            for _ in range(n_batches):
+                
                 # simulate data as we go
-                start = timer()
-                syndromes, flips, n_identities = sim.generate_syndromes()
+                syndromes, flips, _ = sim.generate_syndromes()
                 x, edge_index, edge_attr, batch_labels = get_batch_of_graphs(
                     syndromes,
                     m_nearest_nodes=m_nearest_nodes,
@@ -71,20 +113,13 @@ class Decoder:
                 flips = torch.tensor(flips[:, None], dtype=torch.float32).to(
                     self.device
                 )
-                stop = timer()
-                times += stop - start
 
-                # check memory
-                mem = torch.cuda.mem_get_info("cuda:1")
-                mem_free = mem[0] // 1024 ** 2 
-                tot_mem = mem[1] // 1024 ** 2
-                print(f"Free memory: {mem_free:.2f} MiB, Total memory: {tot_mem:.2f} MiB")
                 # forward/backward pass
-                opt.zero_grad()
+                self.optimizer.zero_grad()
                 out = self.model(x, edge_index, edge_attr, batch_labels)
                 loss = loss_fun(out, flips)
                 loss.backward()
-                opt.step()
+                self.optimizer.step()
 
                 epoch_loss += loss.item() * n_graphs
                 epoch_n_graphs += n_graphs
@@ -101,15 +136,11 @@ class Decoder:
             failure_rate = (
                 batch_size - n_correct_preds - n_val_identities
             ) / batch_size
-            print(
-                f"Epoch {i}: loss = {epoch_loss:.2f}, failure rate = {failure_rate:.2f}"
-            )
+            
+            # save training attributes after each epoch
+            self.training_history["epoch"] = epoch
+            self.training_history["loss"].append(epoch_loss)
+            self.training_history["failure_rate"].append(failure_rate)
+            self.save_model_w_training_settings()
+            
 
-        print(
-            f"Average time taken to create a batch of data: {(times / (n_epochs * n_batches)):.2f}s"
-        )
-        print(f"Total time used for data preparation: {times:.2f}s")
-
-
-decoder = Decoder()
-decoder.train()

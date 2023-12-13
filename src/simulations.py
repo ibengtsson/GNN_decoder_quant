@@ -1,7 +1,7 @@
 import stim
 import numpy as np
 
-from graph_representation import get_3D_graph
+from src.graph_representation import get_3D_graph
 
 class QECCodeSim:
     def __init__(self, repetitions, distance, p, n_shots, code_task, seed):
