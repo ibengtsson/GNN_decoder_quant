@@ -87,10 +87,18 @@ class Decoder:
             # compute epoch loss and check logical failure rate
             epoch_loss /= epoch_n_graphs
             n_correct_preds = run_inference(
-                self.model, val_syndromes, val_flips, m_nearest_nodes=m_nearest_nodes
+                self.model,
+                val_syndromes,
+                val_flips,
+                m_nearest_nodes=m_nearest_nodes,
+                device=self.device,
             )
-            failure_rate = (batch_size - n_correct_preds - n_val_identities) / batch_size
-            print(f"Epoch {i}: loss = {epoch_loss:.2f}, failure rate = {failure_rate:.2f}")
+            failure_rate = (
+                batch_size - n_correct_preds - n_val_identities
+            ) / batch_size
+            print(
+                f"Epoch {i}: loss = {epoch_loss:.2f}, failure rate = {failure_rate:.2f}"
+            )
 
         print(
             f"Average time taken to create a batch of data: {(times / (n_epochs * n_batches)):.2f}s"

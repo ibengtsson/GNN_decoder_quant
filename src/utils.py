@@ -315,8 +315,8 @@ def get_zero_pt(
 
 def run_inference(
     model: nn.Module,
-    syndromes: np.ndarray = None,
-    flips: np.ndarray = None,
+    syndromes: np.ndarray,
+    flips: np.ndarray,
     m_nearest_nodes: int = 5,
     device: torch.device = torch.device("cpu"),
 ) -> int:
