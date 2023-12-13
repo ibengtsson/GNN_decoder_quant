@@ -1,0 +1,22 @@
+paths:
+  root: ...
+  save_dir: ...
+  model_name: graph_decoder
+graph_settings:
+  code_size: 7
+  repetitions: 10
+  error_rate: 0.001
+  m_nearest_nodes: 5
+  n_node_features: 5
+  power: 2
+  n_classes: 1
+training_settings:
+  seed: Null
+  dataset_size: 1000000
+  batch_size: 1024
+  epochs: 100
+  lr: 0.001
+  device: cuda
+  resume_training: False
+  current_epoch: 0
+
