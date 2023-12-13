@@ -3,7 +3,7 @@ paths:
   saved_model_path: ...
 graph_settings:
   code_size: 7
-  repetitions: 10
+  repetitions: 11
   error_rate: 0.001
   m_nearest_nodes: 5
   n_node_features: 5
