@@ -27,7 +27,7 @@ class Decoder:
             self.device = torch.device("cpu")
             
         # instantiate model
-        self.model = GNN_7()
+        self.model = GNN_7().to(self.device)
 
     def train(self):
         
