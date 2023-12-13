@@ -21,7 +21,7 @@ class Decoder:
         self.lr = training_settings["lr"]
         if training_settings["device"] == "cuda":
             self.device = torch.device(
-                training_settings["device"] if torch.cuda.is_available() else "cpu"
+                training_settings["device"] + ":1" if torch.cuda.is_available() else "cpu"
             )
         else:
             self.device = torch.device("cpu")
