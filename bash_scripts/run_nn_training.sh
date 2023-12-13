@@ -11,4 +11,4 @@ module purge
 source ~/scripts/load_env.sh
 
 # send script
-python3 ../train_nn.py -c ../decoder_config.yaml
+python3 ../scripts/train_nn.py -c ../decoder_config.yaml
