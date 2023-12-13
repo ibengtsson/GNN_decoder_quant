@@ -263,9 +263,58 @@ def get_zero_pt(
         return torch.round((-alpha * 2**bit_width) / (beta - alpha))
 
 
+# def run_inference(
+#     model: nn.Module,
+#     loader: DataLoader = None,
+#     syndromes: np.ndarray = None,
+#     flips: np.ndarray = None,
+#     m_nearest_nodes: int = 5,
+#     device: torch.device = torch.device("cpu"),
+# ) -> int:
+#     sigmoid = nn.Sigmoid()
+#     correct_preds = 0
+
+#     # loop over batches
+#     with torch.no_grad():
+#         if loader:
+#             for batch in loader:
+#                 # unzip data
+#                 x = batch.x.to(device)
+#                 edge_index = batch.edge_index.to(device)
+#                 edge_attr = batch.edge_attr.to(device)
+#                 batch_label = batch.batch.to(device)
+
+#                 out = model(
+#                     x,
+#                     edge_index,
+#                     edge_attr,
+#                     batch_label,
+#                 )
+
+#                 prediction = (sigmoid(out.detach()) > 0.5).long()
+#                 target = batch.y.to(device).long()
+#                 correct_preds += int((prediction == target).sum())
+#         else:
+#             x, edge_index, edge_attr, batch_label = get_batch_of_graphs(
+#                 syndromes,
+#                 m_nearest_nodes,
+#                 device=device,
+#             )
+#             out = model(
+#                 x,
+#                 edge_index,
+#                 edge_attr,
+#                 batch_label,
+#             )
+
+#             prediction = (sigmoid(out.detach()) > 0.5).long()
+#             target = torch.tensor(flips[:, None]).to(device).long()
+#             correct_preds += int((prediction == target).sum())
+
+#     return correct_preds
+
 def run_inference(
     model: nn.Module,
-    loader: DataLoader = None,
     syndromes: np.ndarray = None,
     flips: np.ndarray = None,
     m_nearest_nodes: int = 5,
@@ -276,40 +325,21 @@ def run_inference(
 
     # loop over batches
     with torch.no_grad():
-        if loader:
-            for batch in loader:
-                # unzip data
-                x = batch.x.to(device)
-                edge_index = batch.edge_index.to(device)
-                edge_attr = batch.edge_attr.to(device)
-                batch_label = batch.batch.to(device)
+        x, edge_index, edge_attr, batch_label = get_batch_of_graphs(
+            syndromes,
+            m_nearest_nodes,
+            device=device,
+        )
+        out = model(
+            x,
+            edge_index,
+            edge_attr,
+            batch_label,
+        )
 
-                out = model(
-                    x,
-                    edge_index,
-                    edge_attr,
-                    batch_label,
-                )
-
-                prediction = (sigmoid(out.detach()) > 0.5).long()
-                target = batch.y.to(device).long()
-                correct_preds += int((prediction == target).sum())
-        else:
-            x, edge_index, edge_attr, batch_label = get_batch_of_graphs(
-                syndromes,
-                m_nearest_nodes,
-                device=device,
-            )
-            out = model(
-                x,
-                edge_index,
-                edge_attr,
-                batch_label,
-            )
-
-            prediction = (sigmoid(out.detach()) > 0.5).long()
-            target = torch.tensor(flips[:, None]).to(device).long()
-            correct_preds += int((prediction == target).sum())
+        prediction = (sigmoid(out.detach()) > 0.5).long()
+        target = torch.tensor(flips[:, None]).to(device).long()
+        correct_preds += int((prediction == target).sum())
 
     return correct_preds
 
@@ -342,8 +372,8 @@ def parse_yaml(yaml_config):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         config["training_settings"] = {
             "seed": None,
-            "dataset_size": 10000,
-            "batch_size": 2048,
+            "dataset_size": 100,
+            "batch_size": 100,
             "epochs": 5,
             "lr": 0.01,
             "device": device,
