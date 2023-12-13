@@ -74,6 +74,8 @@ class Decoder:
                 stop = timer()
                 times += stop - start
 
+                # check memory
+                print(torch.cuda.mem_get_info(self.device))
                 # forward/backward pass
                 opt.zero_grad()
                 out = self.model(x, edge_index, edge_attr, batch_labels)
