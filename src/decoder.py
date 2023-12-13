@@ -75,7 +75,7 @@ class Decoder:
                 times += stop - start
 
                 # check memory
-                mem = torch.cuda.mem_get_info("cuda:0")
+                mem = torch.cuda.mem_get_info("cuda:1")
                 mem_free = mem[0] // 1024 ** 2 
                 tot_mem = mem[1] // 1024 ** 2
                 print(f"Free memory: {mem_free:.2f} MiB, Total memory: {tot_mem:.2f} MiB")
