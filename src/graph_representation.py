@@ -166,7 +166,10 @@ def get_batch_of_graphs(
     edge_index = knn_graph(pos, m_nearest_nodes, batch=batch_labels)
     
     # compute distances to get edge attributes
-    dist = torch.cdist(pos, pos)
-    edge_attr = 1 / dist[edge_index[0], edge_index[1]].reshape(edge_index.shape[1], 1) ** power
+    # dist = torch.cdist(pos, pos)
+    # edge_attr = 1 / dist[edge_index[0], edge_index[1]].reshape(edge_index.shape[1], 1) ** power
+    
+    dist = torch.sqrt(((pos[edge_index[0], :] - pos[edge_index[1], :])**2).sum(dim=1, keepdim=True))
+    edge_attr = 1 / dist ** power
 
     return x, edge_index, edge_attr, batch_labels
