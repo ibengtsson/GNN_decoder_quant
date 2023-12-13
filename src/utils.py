@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 from torch_geometric.loader import DataLoader
-from src.graph_representation import get_batch_of_graphs
+from graph_representation import get_batch_of_graphs
 import numpy as np
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 import re
 from icecream import ic
+import yaml
 
 
 def match_and_load_state_dict(
@@ -311,3 +312,48 @@ def run_inference(
             correct_preds += int((prediction == target).sum())
 
     return correct_preds
+
+def parse_yaml(yaml_config):
+    
+    if yaml_config is not None:
+        with open(yaml_config, 'r') as stream:
+            try:
+                config = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
+                
+    # default settings
+    else:
+        config = {}
+        config["paths"] = {
+            "root": "../",
+            "save_dir": "../training_outputs",
+            "model_name": "graph_decoder"
+        }
+        config["graph_settings"] = {
+            "code_size": 7,
+            "repetitions": 10,
+            "error_rate": 0.001,
+            "m_nearest_nodes": 5,
+            "n_node_features": 5,
+            "power": 2,
+            "n_classes": 1
+        }
+        config["training_settings"] = {
+            "seed": None,
+            "dataset_size": 10000,
+            "batch_size": 1024,
+            "epochs": 5,
+            "lr": 0.01,
+            "device": "cpu",
+            "resume_training": False,
+            "current_epoch": 0
+        }
+    
+    # read settings into variables
+    paths = config["paths"]
+    graph_settings = config["graph_settings"]
+    training_settings = config["training_settings"]
+    
+    return paths, graph_settings, training_settings
+    

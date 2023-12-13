@@ -4,7 +4,7 @@ from torch.nn import Linear, ModuleList
 from torch import nn
 from torch_geometric.nn import global_mean_pool, GraphConv, DenseGraphConv
 from torch_geometric.utils import to_dense_adj, to_dense_batch
-from src.utils import quantize_tensor, dequantize_tensor, get_scale, get_zero_pt
+from utils import quantize_tensor, dequantize_tensor, get_scale, get_zero_pt
 
 
 class GNN_7(torch.nn.Module):
