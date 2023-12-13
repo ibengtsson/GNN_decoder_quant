@@ -66,7 +66,7 @@ class Decoder:
                     power=power,
                     device=self.device
                 )
-                flips = torch.tensor(flips[:, None], dtype=torch.float32)
+                flips = torch.tensor(flips[:, None], dtype=torch.float32).to(self.device)
                 stop = timer()
                 times += (stop - start)
                 
