@@ -339,13 +339,14 @@ def parse_yaml(yaml_config):
             "power": 2,
             "n_classes": 1
         }
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         config["training_settings"] = {
             "seed": None,
             "dataset_size": 10000,
             "batch_size": 1024,
             "epochs": 5,
             "lr": 0.01,
-            "device": "cpu",
+            "device": device,
             "resume_training": False,
             "current_epoch": 0
         }
