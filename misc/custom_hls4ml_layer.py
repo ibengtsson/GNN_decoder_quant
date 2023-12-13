@@ -138,7 +138,7 @@ class GraphWTorchNet(torch.nn.Module):
 
         # Average pooling
         self.mean_pooling = nn.AvgPool1d(kernel_size=num_node_features)
-        
+
         # GCN layers
         channels = [num_node_features] + hidden_channels_GCN
         self.graph_layers = nn.ModuleList(
@@ -147,7 +147,7 @@ class GraphWTorchNet(torch.nn.Module):
                 for (in_channels, out_channels) in zip(channels[:-1], channels[1:])
             ]
         )
-        
+
         # Dense layers
         channels = hidden_channels_GCN[-1:] + hidden_channels_MLP
         self.dense_layers = nn.ModuleList(
@@ -160,14 +160,14 @@ class GraphWTorchNet(torch.nn.Module):
         # Output later
         self.output_layer = nn.Linear(hidden_channels_MLP[-1], num_classes)
 
-    def forward(self, x, adj):
+    def forward(self, x, adj, batch, one_div_n_nodes):
         #  node embeddings
         for layer in self.graph_layers:
             x = layer(x, adj)
             x = self.activation(x)
 
         # global mean pool
-        x = self.mean_pooling(x)
+        x = pmat_mul(batch, x) * one_div_n_nodes
 
         for layer in self.dense_layers:
             x = layer(x)
@@ -189,7 +189,6 @@ class SimpleNet(nn.Module):
 
 
 def main():
-
     hls4ml.converters.register_pytorch_layer_handler("pmat_mul", parse_matmul_layer)
     hls4ml.model.layers.register_layer("HMatMul", HMatMul)
     backend = hls4ml.backends.get_backend("Vivado")
@@ -201,8 +200,6 @@ def main():
     backend.register_source(p)
 
     # test if it works
-    model = SimpleNet()
-
     model = GraphWTorchNet()
     config = {}
     config["Model"] = {
@@ -212,10 +209,16 @@ def main():
         "Strategy": "Resource",
     }
 
-    input_shape = [[None, 100, 5], [None, 100, 100]]
+    input_shape = [[None, 100, 5], [None, 100, 100], [None, 1, 100], [None, 1, 1]]
     hmodel = hls4ml.converters.convert_from_pytorch_model(
-        model, input_shape, backend="Vivado", hls_config=config
+        model,
+        input_shape,
+        output_dir="graph_nn_as_hls",
+        project_name="quant_on_fpga",
+        backend="Vivado",
+        hls_config=config,
     )
-    
+
+
 if __name__ == "__main__":
     main()
