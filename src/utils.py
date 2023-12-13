@@ -343,7 +343,7 @@ def parse_yaml(yaml_config):
         config["training_settings"] = {
             "seed": None,
             "dataset_size": 10000,
-            "batch_size": 1024,
+            "batch_size": 2048,
             "epochs": 5,
             "lr": 0.01,
             "device": device,
