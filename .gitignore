@@ -28,3 +28,9 @@ wandb
 
 # figures
 figures/*
+
+# vscode files
+.vscode/*
+
+# saved models
+./saved_models/*
