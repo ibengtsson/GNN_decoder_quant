@@ -133,7 +133,8 @@ class Decoder:
         n_batches = dataset_size // batch_size
         loss_fun = torch.nn.BCEWithLogitsLoss()
         sigmoid = torch.nn.Sigmoid()
-
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.95)
+        
         # initialise simulations and graph settings
         m_nearest_nodes = self.graph_settings["m_nearest_nodes"]
         n_node_features = self.graph_settings["n_node_features"]
@@ -184,6 +185,9 @@ class Decoder:
                 train_loss += loss.item() * n_graphs
                 epoch_n_graphs += n_graphs
 
+            # update learning rate
+            scheduler.step()
+            
             # compute losses and logical accuracy
             # ------------------------------------
 
