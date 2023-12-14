@@ -319,7 +319,7 @@ def run_inference(
     flips: np.ndarray,
     m_nearest_nodes: int = 5,
     device: torch.device = torch.device("cpu"),
-) -> int:
+) -> tuple[int, torch.Tensor]:
     sigmoid = nn.Sigmoid()
     correct_preds = 0
 
@@ -338,10 +338,10 @@ def run_inference(
         )
 
         prediction = (sigmoid(out.detach()) > 0.5).long()
-        target = torch.tensor(flips[:, None]).to(device).long()
-        correct_preds += int((prediction == target).sum())
+        flips = flips.long()
+        correct_preds += int((prediction == flips).sum())
 
-    return correct_preds
+    return correct_preds, out
 
 def parse_yaml(yaml_config):
     

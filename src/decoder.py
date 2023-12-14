@@ -9,7 +9,6 @@ from datetime import datetime
 
 class Decoder:
     def __init__(self, yaml_config=None):
-        
         # load settings and initialise state
         paths, graph_settings, training_settings = parse_yaml(yaml_config)
         self.save_dir = Path(paths["save_dir"])
@@ -29,8 +28,10 @@ class Decoder:
         # create a dictionary saving training metrics
         training_history = {}
         training_history["epoch"] = self.epoch
-        training_history["loss"] = []
-        training_history["failure_rate"] = []
+        training_history["train_loss"] = []
+        training_history["train_accuracy"] = []
+        training_history["val_loss"] = []
+        training_history["val_accuracy"] = []
 
         self.training_history = training_history
 
@@ -39,20 +40,26 @@ class Decoder:
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=training_settings["lr"]
         )
-        
+
         # generate a unique name to not overwrite other models
-        current_datetime = datetime.now().strftime("%y%m%d-%H%M%S") 
-        self.save_name = "model_" + current_datetime
+        name = (
+            "d"
+            + str(graph_settings["code_size"])
+            + "_d_t_"
+            + str(graph_settings["repetitions"])
+            + "_"
+        )
+        current_datetime = datetime.now().strftime("%y%m%d-%H%M%S")
+        self.save_name = name + current_datetime
 
     def save_model_w_training_settings(self, model_name=None):
-        
         # make sure path exists, else create it
         self.save_dir.mkdir(parents=True, exist_ok=True)
         if model_name is not None:
             path = self.save_dir / (model_name + ".pt")
         else:
             path = self.save_dir / (self.save_name + ".pt")
-        
+
         attributes = {
             "training_history": self.training_history,
             "model": self.model.state_dict(),
@@ -80,6 +87,7 @@ class Decoder:
         batch_size = self.training_settings["batch_size"]
         n_batches = dataset_size // batch_size
         loss_fun = torch.nn.BCEWithLogitsLoss()
+        sigmoid = torch.nn.Sigmoid()
 
         # simulation settings
         code_size = self.graph_settings["code_size"]
@@ -92,15 +100,19 @@ class Decoder:
 
         # generate validation syndromes
         val_syndromes, val_flips, n_val_identities = sim.generate_syndromes()
-
+        val_flips = torch.tensor(
+            val_flips[:, None],
+            dtype=torch.float32,
+        ).to(self.device)
         for epoch in range(current_epoch, n_epochs):
-            
-            epoch_loss = 0
+            train_loss = 0
             epoch_n_graphs = 0
+            epoch_n_correct = 0
+            epoch_n_trivial = 0
             for _ in range(n_batches):
-                
                 # simulate data as we go
-                syndromes, flips, _ = sim.generate_syndromes()
+                syndromes, flips, n_trivial = sim.generate_syndromes()
+                epoch_n_trivial += n_trivial
                 x, edge_index, edge_attr, batch_labels = get_batch_of_graphs(
                     syndromes,
                     m_nearest_nodes=m_nearest_nodes,
@@ -121,26 +133,41 @@ class Decoder:
                 loss.backward()
                 self.optimizer.step()
 
-                epoch_loss += loss.item() * n_graphs
+                # update loss and accuracies
+                prediction = (sigmoid(out.detach()) > 0.5).long()
+                flips = flips.long()
+                epoch_n_correct += int((prediction == flips).sum())
+
+                train_loss += loss.item() * n_graphs
                 epoch_n_graphs += n_graphs
 
-            # compute epoch loss and check logical failure rate
-            epoch_loss /= epoch_n_graphs
-            n_correct_preds = run_inference(
+            # compute losses and logical accuracy
+            # ------------------------------------
+
+            # train
+            train_loss /= epoch_n_graphs
+            train_accuracy = (epoch_n_correct + epoch_n_trivial) / (
+                batch_size * n_batches
+            )
+
+            # validation
+            n_correct_preds, out = run_inference(
                 self.model,
                 val_syndromes,
                 val_flips,
                 m_nearest_nodes=m_nearest_nodes,
                 device=self.device,
             )
-            failure_rate = (
-                batch_size - n_correct_preds - n_val_identities
-            ) / batch_size
-            
+
+            n_val_graphs = val_syndromes.shape[0]
+            loss = loss_fun(out, val_flips)
+            val_loss = loss.item() * n_val_graphs
+            val_accuracy = (n_correct_preds + n_val_identities) / batch_size
+
             # save training attributes after each epoch
             self.training_history["epoch"] = epoch
-            self.training_history["loss"].append(epoch_loss)
-            self.training_history["failure_rate"].append(failure_rate)
+            self.training_history["train_loss"].append(train_loss)
+            self.training_history["val_loss"].append(val_loss)
+            self.training_history["train_accuracy"].append(train_accuracy)
+            self.training_history["val_accuracy"].append(val_accuracy)
             self.save_model_w_training_settings()
-            
-
