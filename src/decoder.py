@@ -112,7 +112,7 @@ class Decoder:
         flips = []
         n_identities = 0
         for p in error_rates:
-            sim = SurfaceCodeSim(reps, code_size, p, int(n_graphs / 5))
+            sim = SurfaceCodeSim(reps, code_size, p, int(n_graphs / n))
             syndrome, flip, n_id = sim.generate_syndromes()
             syndromes.append(syndrome)
             flips.append(flip)
