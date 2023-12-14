@@ -33,4 +33,4 @@ figures/*
 .vscode/*
 
 # saved models
-./saved_models/*
+saved_models/*
