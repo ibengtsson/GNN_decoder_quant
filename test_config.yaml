@@ -3,7 +3,7 @@ paths:
   saved_model_path: ../saved_models/model_231213-170259.pt
 graph_settings:
   code_size: 7
-  repetitions: 10
+  repetitions: 11
   error_rate: 0.001
   m_nearest_nodes: 5
   n_node_features: 5
@@ -11,7 +11,7 @@ graph_settings:
   n_classes: 1
 training_settings:
   seed: Null
-  dataset_size: 1000
+  dataset_size: 100
   batch_size: 100
   epochs: 5
   lr: 0.001
