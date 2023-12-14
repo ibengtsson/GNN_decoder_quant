@@ -1,10 +1,12 @@
 import torch
+import numpy as np
 from src.utils import parse_yaml, run_inference
 from src.gnn_models import GNN_7
 from src.simulations import SurfaceCodeSim
 from src.graph_representation import get_batch_of_graphs
 from pathlib import Path
 from datetime import datetime
+import random
 
 
 class Decoder:
@@ -79,6 +81,49 @@ class Decoder:
         self.optimizer.load_state_dict(saved_attributes["optimizer"])
         self.save_name = model_path.name.split(sep=".")[0]
 
+    def initialise_simulations(self, n=5):
+        # simulation settings
+        code_size = self.graph_settings["code_size"]
+        reps = self.graph_settings["repetitions"]
+        batch_size = self.training_settings["batch_size"]
+
+        min_error_rate = self.graph_settings["min_error_rate"]
+        max_error_rate = self.graph_settings["max_error_rate"]
+
+        error_rates = np.linspace(min_error_rate, max_error_rate, n)
+
+        sims = []
+        for p in error_rates:
+            sim = SurfaceCodeSim(reps, code_size, p, batch_size)
+            sims.append(sim)
+
+        return sims
+
+    def create_validation_set(self, n_graphs=5e5, n=5):
+        # simulation settings
+        code_size = self.graph_settings["code_size"]
+        reps = self.graph_settings["repetitions"]
+        min_error_rate = self.graph_settings["min_error_rate"]
+        max_error_rate = self.graph_settings["max_error_rate"]
+
+        error_rates = np.linspace(min_error_rate, max_error_rate, n)
+
+        syndromes = []
+        flips = []
+        n_identities = 0
+        for p in error_rates:
+            sim = SurfaceCodeSim(reps, code_size, p, int(n_graphs / 5))
+            syndrome, flip, n_id = sim.generate_syndromes()
+            syndromes.append(syndrome)
+            flips.append(flip)
+            n_identities += n_id
+
+        syndromes = np.concatenate(syndromes)
+        flips = np.concatenate(flips)
+        flips = torch.tensor(flips[:, None], dtype=torch.float32).to(self.device)
+
+        return syndromes, flips, n_identities
+
     def train(self):
         # training settings
         current_epoch = self.epoch
@@ -89,21 +134,18 @@ class Decoder:
         loss_fun = torch.nn.BCEWithLogitsLoss()
         sigmoid = torch.nn.Sigmoid()
 
-        # simulation settings
-        code_size = self.graph_settings["code_size"]
-        reps = self.graph_settings["repetitions"]
-        error_rate = self.graph_settings["error_rate"]
+        # initialise simulations and graph settings
         m_nearest_nodes = self.graph_settings["m_nearest_nodes"]
         n_node_features = self.graph_settings["n_node_features"]
         power = self.graph_settings["power"]
-        sim = SurfaceCodeSim(reps, code_size, error_rate, batch_size)
+
+        sims = self.initialise_simulations()
 
         # generate validation syndromes
-        val_syndromes, val_flips, n_val_identities = sim.generate_syndromes()
-        val_flips = torch.tensor(
-            val_flips[:, None],
-            dtype=torch.float32,
-        ).to(self.device)
+        val_syndromes, val_flips, n_val_identities = self.create_validation_set(
+            n_graphs=self.training_settings["validation_set_size"],
+        )
+
         for epoch in range(current_epoch, n_epochs):
             train_loss = 0
             epoch_n_graphs = 0
@@ -111,6 +153,7 @@ class Decoder:
             epoch_n_trivial = 0
             for _ in range(n_batches):
                 # simulate data as we go
+                sim = random.choice(sims)
                 syndromes, flips, n_trivial = sim.generate_syndromes()
                 epoch_n_trivial += n_trivial
                 x, edge_index, edge_attr, batch_labels = get_batch_of_graphs(
@@ -164,7 +207,7 @@ class Decoder:
             val_loss = loss.item() * n_val_graphs
             val_accuracy = (n_correct_preds + n_val_identities) / batch_size
 
-            # save training attributes after each epoch
+            # save training attributes after every epoch
             self.training_history["epoch"] = epoch
             self.training_history["train_loss"].append(train_loss)
             self.training_history["val_loss"].append(val_loss)
