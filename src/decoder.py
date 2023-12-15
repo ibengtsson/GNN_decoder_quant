@@ -99,7 +99,7 @@ class Decoder:
 
         return sims
 
-    def create_validation_set(self, n_graphs=5e5, n=5):
+    def create_test_set(self, n_graphs=5e5, n=5):
         # simulation settings
         code_size = self.graph_settings["code_size"]
         reps = self.graph_settings["repetitions"]
@@ -120,9 +120,42 @@ class Decoder:
 
         syndromes = np.concatenate(syndromes)
         flips = np.concatenate(flips)
-        flips = torch.tensor(flips[:, None], dtype=torch.float32).to(self.device)
+
+        # split into chunks to reduce memory footprint later
+        batch_size = self.training_settings["batch_size"]
+        n_splits = syndromes.shape[0] // batch_size + 1
+
+        syndromes = np.array_split(syndromes, n_splits)
+        flips = np.array_split(flips, n_splits)
 
         return syndromes, flips, n_identities
+
+    def evaluate_test_set(self, syndromes, flips, n_identities, loss_fun, n_graphs=5e5):
+
+        m_nearest_nodes = self.graph_settings["m_nearest_nodes"]
+        n_correct_preds = 0
+        n_syndrome_graphs = 0
+        val_loss = 0
+        for syndrome, flip in zip(syndromes, flips):
+            flip = torch.tensor(flip[:, None], dtype=torch.float32).to(self.device)
+
+            _n_correct_preds, out = run_inference(
+                self.model,
+                syndrome,
+                flip,
+                m_nearest_nodes=m_nearest_nodes,
+                device=self.device,
+            )
+            n_correct_preds += _n_correct_preds
+            loss = loss_fun(out, flip)
+            val_loss += loss.item() * syndrome.shape[0]
+            n_syndrome_graphs += syndrome.shape[0]
+
+        # compute metrics
+        val_loss /= n_syndrome_graphs
+        val_accuracy = (n_correct_preds + n_identities) / n_graphs
+
+        return val_loss, val_accuracy
 
     def train(self):
         # training settings
@@ -134,7 +167,7 @@ class Decoder:
         loss_fun = torch.nn.BCEWithLogitsLoss()
         sigmoid = torch.nn.Sigmoid()
         scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.95)
-        
+
         # initialise simulations and graph settings
         m_nearest_nodes = self.graph_settings["m_nearest_nodes"]
         n_node_features = self.graph_settings["n_node_features"]
@@ -143,8 +176,9 @@ class Decoder:
         sims = self.initialise_simulations()
 
         # generate validation syndromes
-        val_syndromes, val_flips, n_val_identities = self.create_validation_set(
-            n_graphs=self.training_settings["validation_set_size"],
+        n_val_graphs = self.training_settings["validation_set_size"]
+        val_syndromes, val_flips, n_val_identities = self.create_test_set(
+            n_graphs=n_val_graphs,
         )
 
         for epoch in range(current_epoch, n_epochs):
@@ -187,7 +221,7 @@ class Decoder:
 
             # update learning rate
             scheduler.step()
-            
+
             # compute losses and logical accuracy
             # ------------------------------------
 
@@ -198,18 +232,13 @@ class Decoder:
             )
 
             # validation
-            n_correct_preds, out = run_inference(
-                self.model,
+            val_loss, val_accuracy = self.evaluate_test_set(
                 val_syndromes,
                 val_flips,
-                m_nearest_nodes=m_nearest_nodes,
-                device=self.device,
+                n_val_identities,
+                loss_fun,
+                n_val_graphs,
             )
-
-            n_val_graphs = val_syndromes.shape[0]
-            loss = loss_fun(out, val_flips)
-            val_loss = loss.item() * n_val_graphs
-            val_accuracy = (n_correct_preds + n_val_identities) / batch_size
 
             # save training attributes after every epoch
             self.training_history["epoch"] = epoch
