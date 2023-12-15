@@ -340,7 +340,8 @@ def run_inference(
         prediction = (sigmoid(out.detach()) > 0.5).long()
         flips = flips.long()
         correct_preds += int((prediction == flips).sum())
-
+        
+    del x, edge_index, edge_attr, batch_label
     return correct_preds, out
 
 def parse_yaml(yaml_config):
