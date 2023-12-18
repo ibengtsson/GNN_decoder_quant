@@ -15,7 +15,7 @@ training_settings:
   dataset_size: 10000000
   validation_set_size: 50000
   batch_size: 16000
-  epochs: 100
+  epochs: 300
   lr: 0.001
   device: cuda
   resume_training: False
