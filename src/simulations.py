@@ -3,6 +3,7 @@ import numpy as np
 
 from src.graph_representation import get_3D_graph
 
+
 class QECCodeSim:
     def __init__(self, repetitions, distance, p, n_shots, code_task, seed):
         self.distance = distance
@@ -42,7 +43,7 @@ class QECCodeSim:
             shots=n_shots,
             separate_observables=True,
         )
-        
+
         # sums over the detectors to check if we have a parity change
         shots_w_flips = np.sum(stim_data, axis=1) != 0
         n_trivial_syndromes = np.invert(shots_w_flips).sum()
@@ -67,6 +68,11 @@ class RepetitionCodeSim(QECCodeSim):
         super().__init__(
             repetitions, distance, p, n_shots, "repetition_code:memory", seed
         )
+    
+    def syndrome_mask(self):
+        sz = self.distance 
+        
+        
 
 
 class SurfaceCodeSim(QECCodeSim):
@@ -103,7 +109,7 @@ class SurfaceCodeSim(QECCodeSim):
         syndromes[
             :, det_coords[:, 1], det_coords[:, 0], det_coords[:, 2]
         ] = stabilizer_changes
-        
+
         syndromes[..., 1:] = (syndromes[..., 1:] - syndromes[..., 0:-1]) % 2
         syndromes[np.nonzero(syndromes)] = mask[np.nonzero(syndromes)]
 
@@ -111,7 +117,9 @@ class SurfaceCodeSim(QECCodeSim):
         if n_syndromes is not None:
             while syndromes.shape[0] < n_syndromes:
                 n_shots = n_syndromes - len(syndromes)
-                new_syndromes, new_flips, new_n_trivial_preds = self.generate_syndromes(n_shots=n_shots)
+                new_syndromes, new_flips, new_n_trivial_preds = self.generate_syndromes(
+                    n_shots=n_shots
+                )
                 syndromes = np.concatenate((syndromes, new_syndromes))
                 flips = np.concatenate((flips, new_flips))
                 n_trivial_preds += new_n_trivial_preds
@@ -132,17 +140,19 @@ class SurfaceCodeSim(QECCodeSim):
         batch = []
         stim_data_list = []
         observable_flips_list = []
-        
+
         stim_data, observable_flips, n_trivial = self.sample_syndromes(self.n_shots)
         mask = self.syndrome_mask()
         detector_coordinates = self.get_detector_coords()
-        
-        stim_data_list.extend(stim_data[:self.n_shots])
-        observable_flips_list.extend(observable_flips[:self.n_shots])
-        
+
+        stim_data_list.extend(stim_data[: self.n_shots])
+        observable_flips_list.extend(observable_flips[: self.n_shots])
+
         for i in range(len(stim_data_list)):
             # convert to syndrome grid:
-            syndrome = self.stim_to_syndrome_3D(mask, detector_coordinates, stim_data_list[i])
+            syndrome = self.stim_to_syndrome_3D(
+                mask, detector_coordinates, stim_data_list[i]
+            )
             # get the logical equivalence class:
             true_eq_class = np.array([int(observable_flips_list[i])])
             # map to graph representation
@@ -155,7 +165,7 @@ class SurfaceCodeSim(QECCodeSim):
             )
             batch.append(graph)
         return batch, n_trivial
-    
+
     def stim_to_syndrome_3D(self, mask, coordinates, stim_data):
         """
         Converts a stim detection event array to a syndrome grid.
