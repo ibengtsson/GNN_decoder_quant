@@ -67,7 +67,7 @@ matmul_config_template = """struct config{index} : nnet::matmul_config {{
 }};\n"""
 
 matmul_function_template = "nnet::matmul<{input_t}, {config}>({x}, {y}, {res});"
-matmul_include_list = ["nnet_matmul.h"]
+matmul_include_list = ["nnet_utils/nnet_matmul.h"]
 
 
 class HMatMulConfigTemplate(hls4ml.backends.template.LayerConfigTemplate):
@@ -197,6 +197,7 @@ def main():
     backend.register_template(HMatMulFunctionTemplate)
 
     p = Path(__file__).parent / "nnet_matmul.h"
+    p = "nnet_matmul.h"
     print(f"Registering custom template at {p}.")
     backend.register_source(p)
 
