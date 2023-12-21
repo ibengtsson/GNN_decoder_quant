@@ -14,8 +14,6 @@ struct matmul_config {
     static const unsigned x_width = 10;
     static const unsigned y_height = 10;
     static const unsigned y_width = 10;
-    static const unsigned out_height = 10;
-    static const unsigned out_width = 10;
 
     // product function to use
     template <class x_T, class y_T> using product = nnet::product::mult<x_T, y_T>;
@@ -25,7 +23,7 @@ template<class data_T, typename CONFIG_T>
 void matmul(
     data_T x[CONFIG_T::x_height][CONFIG_T::x_width],
     data_T y[CONFIG_T::y_height][CONFIG_T::y_width],
-    data_T res[CONFIG_T::out_height][CONFIG_T::out_width]
+    data_T res[CONFIG_T::x_height][CONFIG_T::y_width]
 ) {
 
     // naive implementation

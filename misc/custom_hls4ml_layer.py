@@ -48,8 +48,6 @@ def parse_matmul_layer(
     layer["x_width"] = input_shapes[0][2]
     layer["y_height"] = input_shapes[1][1]
     layer["y_width"] = input_shapes[1][2]
-    layer["out_height"] = input_shapes[0][1]
-    layer["out_width"] = input_shapes[1][2]
 
     if input_names is not None:
         layer["inputs"] = input_names
@@ -62,8 +60,6 @@ matmul_config_template = """struct config{index} : nnet::matmul_config {{
     static const unsigned x_width = {x_width};
     static const unsigned y_height = {y_height};
     static const unsigned y_width = {y_width};
-    static const unsigned out_height = {out_height};
-    static const unsigned out_width = {out_width};
 }};\n"""
 
 matmul_function_template = "nnet::matmul<{input_t}, {config}>({x}, {y}, {res});"
@@ -81,8 +77,6 @@ class HMatMulConfigTemplate(hls4ml.backends.template.LayerConfigTemplate):
         params["x_width"] = node.get_input_variable(node.inputs[0]).shape[1]
         params["y_height"] = node.get_input_variable(node.inputs[1]).shape[0]
         params["y_width"] = node.get_input_variable(node.inputs[1]).shape[1]
-        params["out_height"] = node.get_input_variable(node.inputs[0]).shape[0]
-        params["out_width"] = node.get_input_variable(node.inputs[1]).shape[1]
 
         return self.template.format(**params)
 
