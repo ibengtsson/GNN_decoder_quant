@@ -4,19 +4,14 @@ import hls4ml
 import torch
 import torch.nn as nn
 
+#workaround until container is fixed
+import os
+os.environ["LIBRARY_PATH"]="/usr/lib/x86_64-linux-gnu"
+
 
 @torch.fx.wrap
 def pmat_mul(x1, x2):
     return torch.mm(x1, x2)
-
-
-# class PMatMul(nn.Module):
-#     def __init__(self):
-#         super().__init__()
-
-#     def forward(self, x1, x2):
-#         return custum_matmul(x1, x2)
-
 
 class HMatMul(hls4ml.model.layers.Layer):
     "hls4ml implementation of a layer doing matrix multiplication"
