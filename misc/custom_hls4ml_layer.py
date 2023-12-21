@@ -197,6 +197,7 @@ def main():
     backend.register_template(HMatMulFunctionTemplate)
 
     p = Path(__file__).parent / "nnet_matmul.h"
+    print(f"Registering custom template at {p}.")
     backend.register_source(p)
 
     # test if it works
@@ -218,7 +219,6 @@ def main():
         backend="Vivado",
         hls_config=config,
     )
-
-
+    hmodel.build()
 if __name__ == "__main__":
     main()
