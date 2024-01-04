@@ -191,8 +191,8 @@ def main():
 
     # test if it works
     model = GraphWTorchNet(
-        hidden_channels_GCN=[32, 128],
-        hidden_channels_MLP=[128, 64],
+        hidden_channels_GCN=[2, 4],
+        hidden_channels_MLP=[4, 8],
         )
     hls_config = {}
     hls_config["Model"] = {
@@ -201,7 +201,7 @@ def main():
         "Strategy": "Resource",
     }
 
-    input_shape = [[None, 100, 5], [None, 100, 100], [None, 1, 100], [None, 1, 1]]
+    input_shape = [[None, 4, 5], [None, 4, 4], [None, 1, 4], [None, 1, 1]]
     hmodel = hls4ml.converters.convert_from_pytorch_model(
         model,
         input_shape,
