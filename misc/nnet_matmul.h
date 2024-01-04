@@ -19,27 +19,6 @@ struct matmul_config {
     template <class x_T, class y_T> using product = nnet::product::mult<x_T, y_T>;
 };
 
-// template<class data_T, typename CONFIG_T>
-// void matmul(
-//     data_T x[CONFIG_T::x_height][CONFIG_T::x_width],
-//     data_T y[CONFIG_T::y_height][CONFIG_T::y_width],
-//     data_T res[CONFIG_T::x_height][CONFIG_T::y_width]
-// ) {
-
-//     // naive implementation
-//     data_T mult = 0;
-//     for (int i = 0; i < CONFIG_T::x_height; i++) {
-//         for (int j = 0; j < CONFIG_T::y_width; j++) {
-//             res[i][j] = 0;
-
-//             for (int k = 0; k < CONFIG_T::y_height; k++) {
-//                 mult = CONFIG_T::template product <data_T, data_T>::product(x[i][k], y[k][j]);
-//                 res[i][j] = res[i][j] + mult;
-//             }
-//         }
-//     }
-// }
-
 template<class data_T, typename CONFIG_T>
 void matmul(
     data_T x[CONFIG_T::x_height * CONFIG_T::x_width],
@@ -51,12 +30,9 @@ void matmul(
     data_T mult = 0;
     for (int i = 0; i < CONFIG_T::x_height; i++) {
         for (int j = 0; j < CONFIG_T::y_width; j++) {
-            // res[i][j] = 0;
             res[j + i*CONFIG_T::y_width] = 0;
 
             for (int k = 0; k < CONFIG_T::y_height; k++) {
-                // mult = CONFIG_T::template product <data_T, data_T>::product(x[i][k], y[k][j]);
-                // res[i][j] = res[i][j] + mult;
                 mult = CONFIG_T::template product <data_T, data_T>::product(x[k + i*CONFIG_T::y_height], y[j + k*CONFIG_T::y_width]);
                 res[j + i*CONFIG_T::y_width] += mult;
             }

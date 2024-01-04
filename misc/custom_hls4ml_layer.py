@@ -190,12 +190,14 @@ def main():
     backend.register_source(p)
 
     # test if it works
-    model = GraphWTorchNet()
-    config = {}
-    config["Model"] = {
-        "Precision": "ap_fixed<16,6>",
-        "ReuseFactor": 1,
-        "ParallelizationFactor": 1,
+    model = GraphWTorchNet(
+        hidden_channels_GCN=[32, 128],
+        hidden_channels_MLP=[128, 64],
+        )
+    hls_config = {}
+    hls_config["Model"] = {
+        "Precision": "ap_fixed<14,2>",
+        "ReuseFactor": 6000,
         "Strategy": "Resource",
     }
 
@@ -206,8 +208,9 @@ def main():
         output_dir="graph_nn_as_hls",
         project_name="quant_on_fpga",
         backend="Vivado",
-        hls_config=config,
+        hls_config=hls_config,
     )
-    hmodel.build()
+    # hmodel.build()
+    
 if __name__ == "__main__":
     main()
