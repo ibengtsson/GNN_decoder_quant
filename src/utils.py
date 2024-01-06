@@ -361,6 +361,10 @@ def parse_yaml(yaml_config):
             "save_dir": "../training_outputs",
             "model_name": "graph_decoder"
         }
+        config["model_settings"] = {
+            "hidden_channels_GCN": [32, 128, 256, 512, 512, 256, 256],
+            "hidden_channels_MLP": [256, 128, 64],
+        }
         config["graph_settings"] = {
             "code_size": 7,
             "repetitions": 10,
@@ -384,8 +388,9 @@ def parse_yaml(yaml_config):
     
     # read settings into variables
     paths = config["paths"]
+    model_settings = config["model_settings"]
     graph_settings = config["graph_settings"]
     training_settings = config["training_settings"]
     
-    return paths, graph_settings, training_settings
+    return paths, model_settings, graph_settings, training_settings
     
