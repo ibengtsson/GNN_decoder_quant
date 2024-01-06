@@ -34,8 +34,12 @@ class Decoder:
         training_history["train_accuracy"] = []
         training_history["val_loss"] = []
         training_history["val_accuracy"] = []
+        training_history["best_val_accuracy"] = -1
 
         self.training_history = training_history
+        
+        # only keep best found weights
+        self.optimal_weights = None
 
         # instantiate model and optimizer
         self.model = GNN_7().to(self.device)
@@ -53,6 +57,10 @@ class Decoder:
         )
         current_datetime = datetime.now().strftime("%y%m%d-%H%M%S")
         self.save_name = name + current_datetime
+        
+        # check if model should be loaded
+        if training_settings["resume_training"]:
+            self.load_trained_model()
 
     def save_model_w_training_settings(self, model_name=None):
         # make sure path exists, else create it
@@ -62,10 +70,17 @@ class Decoder:
         else:
             path = self.save_dir / (self.save_name + ".pt")
 
+        # we only want to save the weights that corresponds to the best found accuracy
+        if self.training_history["val_accuracy"][-1] > self.training_history["best_val_accuracy"]:
+            self.training_history["best_val_accuracy"] = self.training_history["val_accuracy"][-1]
+            self.optimal_weights = self.model.state_dict()
+        
         attributes = {
             "training_history": self.training_history,
-            "model": self.model.state_dict(),
+            "model": self.optimal_weights,
             "optimizer": self.optimizer.state_dict(),
+            "graph_settings": self.graph_settings,
+            "training_settings": self.training_settings, 
         }
 
         torch.save(attributes, path)
@@ -79,7 +94,10 @@ class Decoder:
         self.epoch = saved_attributes["training_history"]["epoch"] + 1
         self.model.load_state_dict(saved_attributes["model"])
         self.optimizer.load_state_dict(saved_attributes["optimizer"])
-        self.save_name = model_path.name.split(sep=".")[0]
+        self.save_name = self.save_name + "_load_f_" + model_path.name.split(sep=".")[0]
+        
+        # only keep best found weights
+        self.optimal_weights = saved_attributes["model"]
 
     def initialise_simulations(self, n=5):
         # simulation settings
@@ -166,7 +184,7 @@ class Decoder:
         n_batches = dataset_size // batch_size
         loss_fun = torch.nn.BCEWithLogitsLoss()
         sigmoid = torch.nn.Sigmoid()
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.99)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=1)
 
         # initialise simulations and graph settings
         m_nearest_nodes = self.graph_settings["m_nearest_nodes"]
