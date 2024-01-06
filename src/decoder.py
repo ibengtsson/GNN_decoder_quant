@@ -96,6 +96,10 @@ class Decoder:
 
         # update attributes and load model with trained weights
         self.training_history = saved_attributes["training_history"]
+        
+        # older models do not have the attribute "best_val_accuracy"
+        if not "best_val_accuracy" in self.training_history:
+            self.training_history["best_val_accuracy"] = -1
         self.epoch = saved_attributes["training_history"]["epoch"] + 1
         self.model.load_state_dict(saved_attributes["model"])
         self.optimizer.load_state_dict(saved_attributes["optimizer"])
