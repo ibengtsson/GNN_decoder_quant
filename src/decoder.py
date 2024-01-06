@@ -12,9 +12,10 @@ import random
 class Decoder:
     def __init__(self, yaml_config=None):
         # load settings and initialise state
-        paths, graph_settings, training_settings = parse_yaml(yaml_config)
+        paths, model_settings, graph_settings, training_settings = parse_yaml(yaml_config)
         self.save_dir = Path(paths["save_dir"])
         self.saved_model_path = paths["saved_model_path"]
+        self.model_settings = model_settings
         self.graph_settings = graph_settings
         self.training_settings = training_settings
 
@@ -42,7 +43,10 @@ class Decoder:
         self.optimal_weights = None
 
         # instantiate model and optimizer
-        self.model = GNN_7().to(self.device)
+        self.model = GNN_7(
+            hidden_channels_GCN=model_settings["hidden_channels_GCN"],
+            hidden_channels_MLP=model_settings["hidden_channels_MLP"],
+            ).to(self.device)
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=training_settings["lr"]
         )
