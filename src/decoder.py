@@ -82,6 +82,7 @@ class Decoder:
         attributes = {
             "training_history": self.training_history,
             "model": self.optimal_weights,
+            "model_settings": self.model_settings,
             "optimizer": self.optimizer.state_dict(),
             "graph_settings": self.graph_settings,
             "training_settings": self.training_settings, 
