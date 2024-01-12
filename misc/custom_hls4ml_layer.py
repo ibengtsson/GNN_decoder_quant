@@ -196,6 +196,29 @@ class CustomGraphConv(nn.Module):
         adjaceny_term = self.weight_adj(adjaceny_sum)
 
         return node_term + adjaceny_term
+    
+class SimpleGraphNet(torch.nn.Module):
+    def __init__(
+        self,
+        hidden_channels=[4, 8],
+        num_node_features=2,
+    ):
+        super().__init__()
+        self.activation = nn.ReLU()
+        
+        channels = [num_node_features] + hidden_channels
+        self.graph_layers = nn.ModuleList(
+            [
+                CustomGraphConv(in_channels, out_channels)
+                for (in_channels, out_channels) in zip(channels[:-1], channels[1:])
+            ]
+        )
+        
+    def forward(self, x, adj):
+        #  node embeddings
+        for layer in self.graph_layers:
+            x = layer(x, adj)
+            x = self.activation(x)
 
 
 class GraphWTorchNet(torch.nn.Module):
@@ -239,16 +262,16 @@ class GraphWTorchNet(torch.nn.Module):
         # Output later
         self.output_layer = nn.Linear(hidden_channels_MLP[-1], num_classes)
 
-    def forward(self, x, adj, n_nodes):
+    def forward(self, x, adj, batch):
         #  node embeddings
         for layer in self.graph_layers:
             x = layer(x, adj)
             x = self.activation(x)
 
         # global mean pool
-        # x = pmat_mul(batch, x) * one_div_n_nodes[..., 0]
+        x = pmat_mul(batch, x)
         # x = pmean_pool(x, n_nodes, self.pool_dim)
-        x = torch.nn.functional.avg_pool1d(x.T, kernel_size=80).T
+        # x = torch.nn.functional.avg_pool1d(x.T, kernel_size=80).T
 
         for layer in self.dense_layers:
             x = layer(x)
@@ -264,8 +287,21 @@ class SimpleNet(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, x1, x2):
-        out = pmat_mul(x1, x2)
+        self.lin1 = nn.Linear(64, 32)
+        self.lin2 = nn.Linear(32, 16)
+        self.lin3 = nn.Linear(16, 1)
+        
+        self.activation = nn.ReLU()
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.activation(x)
+        
+        x = self.lin2(x)
+        x = self.activation(x)
+        
+        x = self.lin3(x)
+        out = self.activation(x)
+        
         return out
 
 
@@ -289,32 +325,53 @@ def main():
     p = Path(__file__).parent / "nnet_mean_pool.h"
     print(f"Registering custom template at {p}.")
     backend.register_source(p)
-
-    # test if it works
-    model = GraphWTorchNet(
-        hidden_channels_GCN=[16, 32],
-        hidden_channels_MLP=[32, 16],
-        )
-    hls_config = {}
-    hls_config["Model"] = {
-        "Precision": "ap_fixed<14,2>",
-        "ReuseFactor": 1,
-        "Strategy": "Resource",
-    }
-
-    input_shape = [[None, 100, 5], [None, 100, 100], [None, 1, 1]]
-    inputs = [torch.rand(shape[1:]) for shape in input_shape]
-    out = model(*inputs)
     
-    hmodel = hls4ml.converters.convert_from_pytorch_model(
-        model,
-        input_shape,
-        output_dir="graph_nn_as_hls",
-        project_name="quant_on_fpga",
-        backend="Vivado",
-        hls_config=hls_config,
-    )
-    # hmodel.build()
+    simple = False
+    
+    if simple:
+        # SIMPLE EXAMPLE WORKING
+        #---------------------------------------------------------------------
+        model = SimpleNet()
+        hls_config = {}
+        hls_config["Model"] = {
+            "Precision": "ap_fixed<16,2>",
+            "ReuseFactor": 1,
+            "Strategy": "Resource",
+        }
+        input_shape = [[None, 1, 64]]
+        hmodel = hls4ml.converters.convert_from_pytorch_model(
+            model,
+            input_shape,
+            output_dir="test",
+            project_name="simple_nn",
+            backend="Vivado",
+            hls_config=hls_config,
+            io_type="io_stream",
+        )
+        hmodel.build()
+        #----------------------------------------------------------------------
+    else:
+        # MORE REALISTIC EXAMPLE
+        model = SimpleGraphNet()
+        hls_config = {}
+        hls_config["Model"] = {
+            "Precision": "ap_fixed<6,2>",
+            "ReuseFactor": 1,
+            "Strategy": "Resource",
+        }
+
+        input_shape = [[None, 10, 2], [None, 10, 10]]
+        hmodel = hls4ml.converters.convert_from_pytorch_model(
+            model,
+            input_shape,
+            output_dir="graph_nn_as_hls",
+            project_name="quant_on_fpga",
+            backend="Vivado",
+            hls_config=hls_config,
+            io_type="io_parallel",
+        )
+        hmodel.build()
+    
     
 if __name__ == "__main__":
     main()
