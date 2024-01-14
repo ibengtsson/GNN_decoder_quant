@@ -21,6 +21,14 @@ from sys import getsizeof
 
 
 def main():
+    
+    msg = ("WARNING: If using pre-trained weights from /models"
+            + "this will likely not match results from paper"
+            + "due to slight changes in graph creation."
+            + "Now node pruning is done based on euclidian distances,"
+            + " before Manhattan distance was used"
+    )
+    print(msg)
     # command line parsing
     parser = argparse.ArgumentParser(description="Choose model to load.")
     parser.add_argument("-f", "--file", required=True)
@@ -47,9 +55,8 @@ def main():
     print(f"Moved model to {device} and loaded pre-trained weights.")
 
     # settings
-    n_graphs = int(1e6)
-    n_graphs_per_sim = int(8e3)
-    m_nearest_nodes = 5
+    n_graphs = int(10000000)
+    n_graphs_per_sim = int(10000)
     seed = 747
     p = 1e-3
     batch_size = n_graphs_per_sim if "cuda" in device.type else 2000
@@ -72,7 +79,6 @@ def main():
     correct_preds = 0
     n_trivial = 0
     for i in range(n_partitions):
-        print(f"Running partition {i + 1} of {n_partitions}.")
         sim = SurfaceCodeSim(
             reps,
             code_sz,
@@ -82,25 +88,15 @@ def main():
         )
 
         syndromes, flips, n_identities = sim.generate_syndromes()
+        flips = torch.tensor(flips[:, None], dtype=torch.float32).to(device)
 
         # add identities to # trivial predictions
         n_trivial += n_identities
 
-        graphs = []
-        for syndrome, flip in zip(syndromes, flips):
-            x, edge_index, edge_attr, y = get_3D_graph(
-                syndrome_3D=syndrome,
-                target=flip,
-                m_nearest_nodes=m_nearest_nodes,
-                power=2.0,
-            )
-            graphs.append(Data(x, edge_index, edge_attr, y))
-        loader = DataLoader(graphs, batch_size=batch_size)
-
         # run inference
-        correct_preds += run_inference(model, loader, device=device)
-        # correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
-
+        _correct_preds, _ = run_inference(model, syndromes, flips, device=device)
+        correct_preds += _correct_preds
+        
     # run the remaining graphs
     if remaining > 0:
         sim = SurfaceCodeSim(
@@ -112,22 +108,13 @@ def main():
         )
 
         syndromes, flips, n_identities = sim.generate_syndromes()
+        flips = torch.tensor(flips[:, None], dtype=torch.float32).to(device)
+        
         # add identities to # trivial predictions
         n_trivial += n_identities
-
-        graphs = []
-        for syndrome, flip in zip(syndromes, flips):
-            x, edge_index, edge_attr, y = get_3D_graph(
-                syndrome_3D=syndrome,
-                target=flip,
-                m_nearest_nodes=m_nearest_nodes,
-                power=2.0,
-            )
-            graphs.append(Data(x, edge_index, edge_attr, y))
-        loader = DataLoader(graphs, batch_size=batch_size)
-        correct_preds += run_inference(model, loader, device=device)
-        # correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
-
+        _correct_preds, _ = run_inference(model, syndromes, flips, device=device)
+        correct_preds += _correct_preds
+        
     # compute logical failure rate
     failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
     print(f"We have a logical failure rate of {failure_rate}.")
