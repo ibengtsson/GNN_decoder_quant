@@ -1,3 +1,6 @@
+# NOTE
+This is a fork and contains additions to the repository developed by Moritz Lange. The code is still a work in process and although many things work, it must be considered experimental. When time comes I'll add more comments to where to find stuff.
+
 # Graph Decoder
 Graph neural network decoder for the rotated surface code.
 
