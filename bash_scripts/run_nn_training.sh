@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH -A NAISS2023-5-353 -p alvis
-#SBATCH -t 1-00:00:00 			# time limit days-hours:minutes:seconds
+#SBATCH -t 5-00:00:00 			# time limit days-hours:minutes:seconds
 #SBATCH -J nn_training
 #SBATCH -o ../job_outputs/nn_training%j.out
 #SBATCH --cpus-per-task=1
