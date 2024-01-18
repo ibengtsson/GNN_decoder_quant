@@ -1,6 +1,12 @@
 # NOTE
 This is a fork and contains additions to the repository developed by Moritz Lange. The code is still a work in process and although many things work, it must be considered experimental. When time comes I'll add more comments to where to find stuff.
 
+* `scripts/` contains simple scripts used as entry-points to run source code. Often accept command-line arguments.
+* `bash_scripts/` contains bash scripts used to run code on a Linux-based GPU-cluster with Slurm. 
+* `notebooks/` contains Jupyter notebooks where I've visualised stuff and tested functionality during development. Experimental, can't guarantee stuff that works yet. 
+
+# Moritz comments follows below (will remove when I've added more comments):
+-----------------------------------------------------------------------------
 # Graph Decoder
 Graph neural network decoder for the rotated surface code.
 
