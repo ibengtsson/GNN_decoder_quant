@@ -157,7 +157,7 @@ class Decoder:
 
         return syndromes, flips, n_identities
 
-    def evaluate_test_set(self, syndromes, flips, n_identities, loss_fun, n_graphs=5e5):
+    def evaluate_test_set(self, syndromes, flips, n_identities, loss_fun, n_graphs=5e4):
 
         m_nearest_nodes = self.graph_settings["m_nearest_nodes"]
         n_correct_preds = 0
