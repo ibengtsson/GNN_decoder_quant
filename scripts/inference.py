@@ -41,20 +41,20 @@ def main():
         raise FileNotFoundError("The file was not found!")
 
     model = GNN_7().to(device)
-    model = match_and_load_state_dict(model, model_data["model"])
+    model.load_state_dict(model_data["model"])
     model.eval()
 
     print(f"Moved model to {device} and loaded pre-trained weights.")
 
     # settings
-    n_graphs = int(1e6)
+    n_graphs = int(5e5)
     n_graphs_per_sim = int(8e3)
     m_nearest_nodes = 5
     seed = 747
     p = 1e-3
     batch_size = n_graphs_per_sim if "cuda" in device.type else 2000
 
-    # if we want to generate many graphs, do so in chunks
+    # if we want to run inference on many graphs, do so in batches
     if n_graphs > n_graphs_per_sim:
         n_partitions = n_graphs // n_graphs_per_sim
         remaining = n_graphs % n_graphs_per_sim
@@ -82,24 +82,14 @@ def main():
         )
 
         syndromes, flips, n_identities = sim.generate_syndromes()
-
+        flips = torch.tensor(flips[:, None], dtype=torch.float32).to(device)
+        
         # add identities to # trivial predictions
         n_trivial += n_identities
 
-        graphs = []
-        for syndrome, flip in zip(syndromes, flips):
-            x, edge_index, edge_attr, y = get_3D_graph(
-                syndrome_3D=syndrome,
-                target=flip,
-                m_nearest_nodes=m_nearest_nodes,
-                power=2.0,
-            )
-            graphs.append(Data(x, edge_index, edge_attr, y))
-        loader = DataLoader(graphs, batch_size=batch_size)
-
         # run inference
-        correct_preds += run_inference(model, loader, device=device)
-        # correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
+        _correct_preds, _ = run_inference(model, syndromes, flips, device=device)
+        correct_preds += _correct_preds
 
     # run the remaining graphs
     if remaining > 0:
@@ -112,27 +102,18 @@ def main():
         )
 
         syndromes, flips, n_identities = sim.generate_syndromes()
+        flips = torch.tensor(flips[:, None], dtype=torch.float32).to(device)
+        
         # add identities to # trivial predictions
         n_trivial += n_identities
 
-        graphs = []
-        for syndrome, flip in zip(syndromes, flips):
-            x, edge_index, edge_attr, y = get_3D_graph(
-                syndrome_3D=syndrome,
-                target=flip,
-                m_nearest_nodes=m_nearest_nodes,
-                power=2.0,
-            )
-            graphs.append(Data(x, edge_index, edge_attr, y))
-        loader = DataLoader(graphs, batch_size=batch_size)
-        correct_preds += run_inference(model, loader, device=device)
-        # correct_preds += run_inference(model, syndromes=syndromes, flips=flips, device=device)
+        _correct_preds, _ = run_inference(model, syndromes, flips, device=device)
+        correct_preds += _correct_preds
 
     # compute logical failure rate
     failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
     print(f"We have a logical failure rate of {failure_rate}.")
     return 0
-
 
 if __name__ == "__main__":
     main()
