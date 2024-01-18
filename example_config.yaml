@@ -1,0 +1,32 @@
+paths:
+  save_dir: pick a directory to save models (I've used ../saved_models)
+  saved_model_path: add path to saved model, if one is to be loaded
+model_settings:
+  hidden_channels_GCN: 
+    - 16
+    - 32
+    - 64
+  hidden_channels_MLP: 
+    - 64
+    - 32
+    - 16
+graph_settings:
+  code_size: 7
+  repetitions: 11
+  min_error_rate: 0.001
+  max_error_rate: 0.005
+  m_nearest_nodes: Null
+  n_node_features: 5
+  power: 2
+  n_classes: 1
+training_settings:
+  seed: Null
+  dataset_size: 1000
+  validation_set_size: 2000
+  batch_size: 100
+  epochs: Must be > current_epoch, network is only trained until epochs and not current_epoch + epochs
+  lr: 0.001
+  device: cuda
+  resume_training: Set to True or False depending on whether uou want to resume training
+  current_epoch: Set to 0 if a new model is being trained, if one's loaded set to the epoch you last finished on
+
