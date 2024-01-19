@@ -55,8 +55,8 @@ def main():
     print(f"Moved model to {device} and loaded pre-trained weights.")
 
     # settings
-    n_graphs = int(10000000)
-    n_graphs_per_sim = int(10000)
+    n_graphs = int(1e8)
+    n_graphs_per_sim = int(20000)
     seed = 747
     p = 1e-3
     batch_size = n_graphs_per_sim if "cuda" in device.type else 2000
