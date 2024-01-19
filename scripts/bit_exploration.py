@@ -19,7 +19,7 @@ from src.utils import (
     get_zero_pt,
     quantize_model_layers,
     dequantize_model_layers,
-    run_inference,
+    run_inference_old,
     get_all_weights,
     quantize_tensor,
     dequantize_tensor,
@@ -114,7 +114,7 @@ def explore_weights(
             dequantize_model_layers(model, scale, zero_pt)
 
             # run inference and add #correct predictions to data array
-            bit_predictions_data[count, 0] += run_inference(model, loader, device=device)
+            bit_predictions_data[count, 0] += run_inference_old(model, loader, device=device)
 
             # save quantization error
             dq_weights = get_all_weights(model)
@@ -122,7 +122,7 @@ def explore_weights(
             count += 1
 
         # before running next partition we check how the floating point model performs
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # run the remaining parts
     if remaining > 0:
@@ -168,7 +168,7 @@ def explore_weights(
             dequantize_model_layers(model, scale, zero_pt)
 
             # run inference and add #correct predictions to data array
-            bit_predictions_data[count, 0] += run_inference(model, loader, device=device)
+            bit_predictions_data[count, 0] += run_inference_old(model, loader, device=device)
 
             # save quantization error
             dq_weights = get_all_weights(model)
@@ -176,7 +176,7 @@ def explore_weights(
             count += 1
 
         # add final floating point predictions
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -254,7 +254,7 @@ def explore_fixed_pt_weights(
             fixed_precision_model_layers(model, bit_width)
 
             # run inference and add #correct predictions to data array
-            bit_predictions_data[count, 0] += run_inference(model, loader, device=device)
+            bit_predictions_data[count, 0] += run_inference_old(model, loader, device=device)
 
             # save quantization error
             dq_weights = get_all_weights(model)
@@ -262,7 +262,7 @@ def explore_fixed_pt_weights(
             count += 1
 
         # before running next partition we check how the floating point model performs
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # run the remaining parts
     if remaining > 0:
@@ -299,7 +299,7 @@ def explore_fixed_pt_weights(
             fixed_precision_model_layers(model, bit_width)
 
             # run inference and add #correct predictions to data array
-            bit_predictions_data[count, 0] += run_inference(model, loader, device=device)
+            bit_predictions_data[count, 0] += run_inference_old(model, loader, device=device)
 
             # save quantization error
             dq_weights = get_all_weights(model)
@@ -307,7 +307,7 @@ def explore_fixed_pt_weights(
             count += 1
 
         # add final floating point predictions
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -414,12 +414,12 @@ def explore_weights_per_layer(
                 dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
 
                 # run inference and add #correct predictions to data array
-                layer_predictions_data[bit_count, layer_count, 0] += run_inference(model, loader, device=device)
+                layer_predictions_data[bit_count, layer_count, 0] += run_inference_old(model, loader, device=device)
                 bit_count += 1
             layer_count += 1
 
         # before running next partition we check how the floating point model performs
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
         
     # run the remaining parts
     if remaining > 0:
@@ -468,12 +468,12 @@ def explore_weights_per_layer(
                 dequantize_model_layers(model, scale, zero_pt, layer_names=layer)
 
                 # run inference and add #correct predictions to data array
-                layer_predictions_data[bit_count, layer_count, 0] += run_inference(model, loader, device=device)
+                layer_predictions_data[bit_count, layer_count, 0] += run_inference_old(model, loader, device=device)
                 bit_count += 1
             layer_count += 1
 
         # add final floating point predictions
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = ((
@@ -573,7 +573,7 @@ def explore_data(
                     bit_predictions_data[count, 0] += int((prediction == target).sum())
                     count += 1
 
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # run the remaining parts
     if remaining > 0:
@@ -626,7 +626,7 @@ def explore_data(
                     count += 1
 
         # add final floating point predictions
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -644,6 +644,7 @@ def explore_data_and_weights(
     p: float,
     min_bits: int,
     max_bits: int,
+    const_bit_w: int,
     n_graphs: int,
     n_graphs_per_sim: int,
     m_nearest_nodes: int = 5,
@@ -729,14 +730,14 @@ def explore_data_and_weights(
                         edge_index,
                         edge_attr,
                         batch_label,
-                        bit_width
+                        const_bit_w,
                     )
                     prediction = (sigmoid(out.detach()) > 0.5).long()
                     target = batch.y.to(device).int()
                     bit_predictions_data[count, 0] += int((prediction == target).sum())
                     count += 1
 
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # run the remaining parts
     if remaining > 0:
@@ -796,7 +797,7 @@ def explore_data_and_weights(
                         edge_index,
                         edge_attr,
                         batch_label,
-                        bit_width,
+                        const_bit_w,
                     )
                     prediction = (sigmoid(out.detach()) > 0.5).long()
                     target = batch.y.to(device).int()
@@ -804,7 +805,7 @@ def explore_data_and_weights(
                     count += 1
 
         # add final floating point predictions
-        float_predictions_data[0] += run_inference(float_model, loader, device=device)
+        float_predictions_data[0] += run_inference_old(float_model, loader, device=device)
 
     # when all partitions are finished we can compute logical failure rates
     failure_rate = (
@@ -854,6 +855,8 @@ def main():
 
     # collect data for each code size
     data_per_code_sz = []
+    bit_data = []
+    float_data = []
     for path in paths:
         model_path = Path.cwd() / path
 
@@ -906,6 +909,7 @@ def main():
             data_per_code_sz.append((failure_rate, failure_rate_fp_model))
             
         elif experiment == "data_and_weights":
+            const_bit_w = 10
             failure_rate, failure_rate_fp_model = explore_data_and_weights(
                 float_model,
                 code_sz,
@@ -913,13 +917,17 @@ def main():
                 p,
                 min_bits,
                 max_bits,
+                const_bit_w,
                 n_graphs,
                 n_graphs_per_sim,
                 batch_size=batch_size,
                 seed=seed,
                 device=device,
             )
+            
             data_per_code_sz.append((failure_rate, failure_rate_fp_model))
+            bit_data.append(failure_rate.squeeze())
+            float_data.append(failure_rate_fp_model)
 
         elif experiment == "fixed_pt":
             failure_rate, failure_rate_fp_model, q_error = explore_fixed_pt_weights(
@@ -955,6 +963,13 @@ def main():
         else:
             print("You need to provide a valid experiment.")
             return
+    
+    bit_data = np.array(bit_data)
+    print(bit_data.shape)
+    float_data = np.array(float_data)
+    np.save("const_data_quantization.npy", bit_data)
+    np.save("const_data_quantization_float.npy", float_data)
+    return
 
     if "layer" not in experiment:
         fig_acc, ax_acc = plt.subplots(figsize=(12, 8))
@@ -974,12 +989,15 @@ def main():
                 color=colors[i],
                 label=f"FP32 logical failure rate, d={code_sz[i]}",
             )
-            ax_acc.semilogy(
-                x,
-                failure_rate,
-                color=colors[i],
-                label=f"d = {code_sz[i]}",
-            )
+            if not x < 0 in failure_rate:
+                ax_acc.semilogy(
+                    x,
+                    failure_rate,
+                    color=colors[i],
+                    label=f"d = {code_sz[i]}",
+                )
+            else:
+                print(f"The dataset is likely to small, failure rate = {failure_rate:.2f}")
 
             # ax_qerr.semilogy(
             #     x,
