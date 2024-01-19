@@ -3,19 +3,23 @@ paths:
   saved_model_path: ...
 model_settings:
   hidden_channels_GCN: 
-    - 16
     - 32
-    - 64
+    - 128
+    - 256
+    - 512
+    - 512
+    - 256 
+    - 256
   hidden_channels_MLP: 
+    - 256
+    - 128
     - 64
-    - 32
-    - 16
 graph_settings:
-  code_size: 7
-  repetitions: 11
+  code_size: 5
+  repetitions: 5
   min_error_rate: 0.001
   max_error_rate: 0.005
-  m_nearest_nodes: 5
+  m_nearest_nodes: 10
   n_node_features: 5
   power: 2
   n_classes: 1
@@ -24,7 +28,7 @@ training_settings:
   dataset_size: 10000000
   validation_set_size: 50000
   batch_size: 12000
-  epochs: 600
+  epochs: 1000
   lr: 0.001
   device: cuda
   resume_training: False
