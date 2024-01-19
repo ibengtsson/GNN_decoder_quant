@@ -200,13 +200,15 @@ class CustomGraphConv(nn.Module):
 class SimpleGraphNet(torch.nn.Module):
     def __init__(
         self,
-        hidden_channels=[4, 8],
+        hidden_channels_GCN=[4, 8],
+        hidden_channels_MLP=[8, 4],
         num_node_features=2,
+        num_classes=1,
     ):
         super().__init__()
         self.activation = nn.ReLU()
         
-        channels = [num_node_features] + hidden_channels
+        channels = [num_node_features] + hidden_channels_GCN
         self.graph_layers = nn.ModuleList(
             [
                 CustomGraphConv(in_channels, out_channels)
@@ -214,11 +216,35 @@ class SimpleGraphNet(torch.nn.Module):
             ]
         )
         
-    def forward(self, x, adj):
+        # Dense layers
+        channels = hidden_channels_GCN[-1:] + hidden_channels_MLP
+        self.dense_layers = nn.ModuleList(
+            [
+                nn.Linear(in_channels, out_channels)
+                for (in_channels, out_channels) in zip(channels[:-1], channels[1:])
+            ]
+        )
+
+        # Output later
+        self.output_layer = nn.Linear(hidden_channels_MLP[-1], num_classes)
+        
+    def forward(self, x, adj, batch):
+        
         #  node embeddings
         for layer in self.graph_layers:
             x = layer(x, adj)
             x = self.activation(x)
+            
+        # pool
+        x = pmat_mul(batch, x)
+        
+        # dense
+        for layer in self.dense_layers:
+            x = layer(x)
+            x = self.activation(x)
+
+        # output
+        x = self.output_layer(x)
 
 
 class GraphWTorchNet(torch.nn.Module):
@@ -360,7 +386,7 @@ def main():
             "Strategy": "Resource",
         }
 
-        input_shape = [[None, 10, 2], [None, 10, 10]]
+        input_shape = [[None, 10, 2], [None, 10, 10], [None, 1, 10]]
         hmodel = hls4ml.converters.convert_from_pytorch_model(
             model,
             input_shape,
