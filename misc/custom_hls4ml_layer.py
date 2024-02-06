@@ -3,6 +3,11 @@ from pathlib import Path
 import hls4ml
 import torch
 import torch.nn as nn
+import numpy as np
+import sys
+sys.path.append("..")
+
+from src.simulations import SurfaceCodeSim
 
 #workaround until container is fixed
 import os
@@ -186,23 +191,22 @@ class CustomGraphConv(nn.Module):
     def __init__(self, input_features, output_features):
         super().__init__()
 
-        self.weight_node = nn.Linear(input_features, output_features, bias=False)
-        self.weight_adj = nn.Linear(input_features, output_features, bias=True)
+        self.lin_rel = nn.Linear(input_features, output_features, bias=True)
+        self.lin_root = nn.Linear(input_features, output_features, bias=False)
 
     def forward(self, x, adj):
-        node_term = self.weight_node(x)
-
+        node_term = self.lin_rel(x)
         adjaceny_sum = pmat_mul(adj, x)
-        adjaceny_term = self.weight_adj(adjaceny_sum)
+        adjaceny_term = self.lin_root(adjaceny_sum)
 
-        return node_term + adjaceny_term
+        return node_term + adjaceny_term   
     
 class SimpleGraphNet(torch.nn.Module):
     def __init__(
         self,
         hidden_channels_GCN=[4, 8],
         hidden_channels_MLP=[8, 4],
-        num_node_features=2,
+        num_node_features=5,
         num_classes=1,
     ):
         super().__init__()
@@ -245,6 +249,7 @@ class SimpleGraphNet(torch.nn.Module):
 
         # output
         x = self.output_layer(x)
+        return x
 
 
 class GraphWTorchNet(torch.nn.Module):
@@ -296,8 +301,6 @@ class GraphWTorchNet(torch.nn.Module):
 
         # global mean pool
         x = pmat_mul(batch, x)
-        # x = pmean_pool(x, n_nodes, self.pool_dim)
-        # x = torch.nn.functional.avg_pool1d(x.T, kernel_size=80).T
 
         for layer in self.dense_layers:
             x = layer(x)
@@ -312,14 +315,16 @@ class GraphWTorchNet(torch.nn.Module):
 class SimpleNet(nn.Module):
     def __init__(self):
         super().__init__()
-
-        self.lin1 = nn.Linear(64, 32)
-        self.lin2 = nn.Linear(32, 16)
-        self.lin3 = nn.Linear(16, 1)
+        
+        self.lin1 = nn.Linear(3, 3)
+        # self.lin2 = nn.Linear(32, 16)
+        # self.lin3 = nn.Linear(16, 1)
         
         self.activation = nn.ReLU()
     def forward(self, x):
+        
         x = self.lin1(x)
+        return x
         x = self.activation(x)
         
         x = self.lin2(x)
@@ -329,6 +334,14 @@ class SimpleNet(nn.Module):
         out = self.activation(x)
         
         return out
+    
+class MatMulNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, x, y):
+        
+        return pmat_mul(x, y)
 
 
 def main():
@@ -352,19 +365,42 @@ def main():
     print(f"Registering custom template at {p}.")
     backend.register_source(p)
     
+    
+    # set seed
+    torch.manual_seed(111)
+    np.random.seed(11)
     simple = False
     
     if simple:
         # SIMPLE EXAMPLE WORKING
         #---------------------------------------------------------------------
+        # model = CustomGraphConv(2, 4)
         model = SimpleNet()
+        weights = model.state_dict()
+        w_shape = weights["lin1.weight"].shape
+        b_shape = weights["lin1.bias"].shape
+        w = torch.ones(w_shape)
+        b = torch.ones(b_shape)
+        # weights["lin1.weight"] = w
+        # weights["lin1.bias"] = b
+        
+        model.load_state_dict(weights)
+        
         hls_config = {}
         hls_config["Model"] = {
-            "Precision": "ap_fixed<16,2>",
-            "ReuseFactor": 1,
+            "Precision": "ap_fixed<64,16>",
+            "ReuseFactor": 6,
             "Strategy": "Resource",
+            "inputs_channel_last": True,
         }
-        input_shape = [[None, 1, 64]]
+        # input_shape = [[None, 4, 2], [None, 4, 4]]
+        input_shape = [[None, 2, 3]]
+        inputs = [np.random.randint(2, size=(shape[1], shape[2])).astype(np.float32) for shape in input_shape]
+        input_tensors = [torch.tensor(input, dtype=torch.float32) for input in inputs]
+        
+        # out = model(input_tensors[0], input_tensors[1])
+        out = model(input_tensors[0])
+        truth = input_tensors[0] @ weights["lin1.weight"].T + weights["lin1.bias"]
         hmodel = hls4ml.converters.convert_from_pytorch_model(
             model,
             input_shape,
@@ -372,21 +408,70 @@ def main():
             project_name="simple_nn",
             backend="Vivado",
             hls_config=hls_config,
-            io_type="io_stream",
+            io_type="io_parallel",
         )
-        hmodel.build()
+        
+        hmodel.compile()
+        hout = hmodel.predict(np.ascontiguousarray(inputs[0]))
+        
+        print(f"Input tensors: \n{input_tensors}")
+        print(f"Weights: \n{weights['lin1.weight'].T}")
+        print(f"Bias: \n{weights['lin1.bias']}")
+        print(f"Truth: \n{truth}")
+        print(f"F32 output: \n{out}")
+        print(f"Quantized output: \n{hout}")
+
         #----------------------------------------------------------------------
     else:
         # MORE REALISTIC EXAMPLE
-        model = SimpleGraphNet()
+        
+        n_node_features = 5
+        max_nodes = 10
+        hidden_channels_GCN = [32, 64]
+        hidden_channels_MLP = [64, 32]
+        
+        model = GraphWTorchNet(
+            hidden_channels_GCN,
+            hidden_channels_MLP,
+            n_node_features,
+            )
+        
+        # load weights and map to network
+        path = Path("../saved_models/d3_d_t_3_240125-163025_load_f_d3_d_t_3_240125-111113_load_f_d3_d_t_3_240124-141433_load_f_d3_d_t_3_240123-230657.pt")
+        weights = torch.load(path, map_location="cpu")["model"]
+        model.load_state_dict(weights)
+        
+        # get simulation data
+        reps = 3
+        code_sz = 3
+        n_shots = 1
+        seed = 747
+        prob = 1e-3
+        sim = SurfaceCodeSim(
+            reps,
+            code_sz,
+            prob,
+            n_shots=n_shots,
+            seed=seed - 1,
+        )
+
+        syndromes, flips, n_identities = sim.generate_syndromes()
+        flips = torch.tensor(flips[:, None], dtype=torch.float32)
+
         hls_config = {}
         hls_config["Model"] = {
-            "Precision": "ap_fixed<6,2>",
+            "Precision": "ap_fixed<32, 2>",
             "ReuseFactor": 1,
             "Strategy": "Resource",
         }
 
-        input_shape = [[None, 10, 2], [None, 10, 10], [None, 1, 10]]
+        input_shape = [[None, max_nodes, n_node_features], [None, max_nodes, max_nodes], [None, 1, max_nodes]]
+        inputs = [np.random.rand(shape[1], shape[2]) for shape in input_shape]
+        input_tensors = [torch.tensor(input, dtype=torch.float32) for input in inputs]
+        
+        model.eval()
+        out = model(*input_tensors).item()
+
         hmodel = hls4ml.converters.convert_from_pytorch_model(
             model,
             input_shape,
@@ -396,7 +481,12 @@ def main():
             hls_config=hls_config,
             io_type="io_parallel",
         )
-        hmodel.build()
+        hmodel.compile()
+        hout = hmodel.predict(inputs)
+        
+        print(f"F32 output: \n{out}")
+        print(f"Quantized output: \n{hout}")
+        # hmodel.build()
     
     
 if __name__ == "__main__":

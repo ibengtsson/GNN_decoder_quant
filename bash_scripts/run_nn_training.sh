@@ -4,7 +4,7 @@
 #SBATCH -J nn_training
 #SBATCH -o ../job_outputs/nn_training%j.out
 #SBATCH --cpus-per-task=1
-#SBATCH --gpus-per-node=A40:1 # GPUs 64GB of RAM; cost factor 1.0
+#SBATCH --gpus-per-node=A100fat:1 # GPUs 64GB of RAM; cost factor 1.0
 
 # load modules and environment
 module purge

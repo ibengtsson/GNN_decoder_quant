@@ -8,4 +8,4 @@
 
 module purge
 source ~/scripts/load_env.sh
-python3 ../scripts/inference.py -f "../saved_models/d7_d_t_11_240109-114444_load_f_d7_d_t_11_240106-153206_load_f_d7_d_t_11_240102-115304.pt"
+python3 ../scripts/inference.py -f "../saved_models/d7_d_t_11_240118-211740_load_f_d7_d_t_11_240109-114444_load_f_d7_d_t_11_240106-153206_load_f_d7_d_t_11_240102-115304.pt"

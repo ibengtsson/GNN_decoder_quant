@@ -909,7 +909,7 @@ def main():
             data_per_code_sz.append((failure_rate, failure_rate_fp_model))
             
         elif experiment == "data_and_weights":
-            const_bit_w = 10
+            const_bit_w = 16
             failure_rate, failure_rate_fp_model = explore_data_and_weights(
                 float_model,
                 code_sz,
@@ -965,7 +965,6 @@ def main():
             return
     
     bit_data = np.array(bit_data)
-    print(bit_data.shape)
     float_data = np.array(float_data)
     np.save("const_data_quantization.npy", bit_data)
     np.save("const_data_quantization_float.npy", float_data)

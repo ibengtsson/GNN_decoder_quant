@@ -55,11 +55,13 @@ def main():
     print(f"Moved model to {device} and loaded pre-trained weights.")
 
     # settings
-    n_graphs = int(1e8)
-    n_graphs_per_sim = int(20000)
+    n_graphs = int(1e7)
+    n_graphs_per_sim = int(10000)
     seed = 747
     p = 1e-3
     batch_size = n_graphs_per_sim if "cuda" in device.type else 2000
+    
+    m_nearest_nodes = model_data["graph_settings"]["m_nearest_nodes"]
 
     # if we want to run inference on many graphs, do so in batches
     if n_graphs > n_graphs_per_sim:
@@ -94,7 +96,7 @@ def main():
         n_trivial += n_identities
 
         # run inference
-        _correct_preds, _ = run_inference(model, syndromes, flips, device=device)
+        _correct_preds, _ = run_inference(model, syndromes, flips, m_nearest_nodes=m_nearest_nodes, device=device)
         correct_preds += _correct_preds
     # run the remaining graphs
     if remaining > 0:
@@ -112,7 +114,7 @@ def main():
         # add identities to # trivial predictions
         n_trivial += n_identities
 
-        _correct_preds, _ = run_inference(model, syndromes, flips, device=device)
+        _correct_preds, _ = run_inference(model, syndromes, flips, m_nearest_nodes=m_nearest_nodes, device=device)
         correct_preds += _correct_preds
 
     # compute logical failure rate
