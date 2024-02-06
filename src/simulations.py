@@ -110,7 +110,8 @@ class SurfaceCodeSim(QECCodeSim):
             :, det_coords[:, 1], det_coords[:, 0], det_coords[:, 2]
         ] = stabilizer_changes
 
-        syndromes[..., 1:] = (syndromes[..., 1:] - syndromes[..., 0:-1]) % 2
+        # MOST LIKELY A BUG - detectors are per definition comparative measurements
+        # syndromes[..., 1:] = (syndromes[..., 1:] - syndromes[..., 0:-1]) % 2
         syndromes[np.nonzero(syndromes)] = mask[np.nonzero(syndromes)]
 
         # make sure we get enough non-trivial syndromes if a certain number is desired
