@@ -1,9 +1,11 @@
 # NOTE
 This is a fork and contains additions to the repository developed by Moritz Lange. The code is still a work in process and although many things work, it must be considered experimental. When time comes I'll add more comments to where to find stuff.
 
-* `scripts/` contains simple scripts used as entry-points to run source code. Often accept command-line arguments.
+* `src/` contains "finished" source code. 
+* `scripts/` contains scripts used as entry-points to run source code. Often accept command-line arguments.
 * `bash_scripts/` contains bash scripts used to run code on a Linux-based GPU-cluster with Slurm. 
 * `notebooks/` contains Jupyter notebooks where I've visualised stuff and tested functionality during development. Experimental, can't guarantee stuff that works yet. 
+* `hls/` contains code to convert a neural network developed in software into hardware code. The idea is to use hls4ml to convert the graph neural network decoder. Still a work in progress.
 
 # Moritz comments follows below (will remove when I've added more comments):
 -----------------------------------------------------------------------------
