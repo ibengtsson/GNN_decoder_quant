@@ -48,6 +48,9 @@ def main():
     else:
         raise FileNotFoundError("The file was not found!")
 
+    # hidden_channels_GCN = [32, 64]
+    # hidden_channels_MLP = [64, 32]
+    # model = GNN_7(hidden_channels_GCN, hidden_channels_MLP).to(device)
     model = GNN_7().to(device)
     model.load_state_dict(model_data["model"])
     model.eval()
@@ -55,11 +58,12 @@ def main():
     print(f"Moved model to {device} and loaded pre-trained weights.")
 
     # settings
-    n_graphs = int(10000000)
+    n_graphs = int(1e7)
     n_graphs_per_sim = int(10000)
     seed = 747
     p = 1e-3
     batch_size = n_graphs_per_sim if "cuda" in device.type else 2000
+    m_nearest_nodes = model_data["graph_settings"]["m_nearest_nodes"]
 
     # if we want to run inference on many graphs, do so in batches
     if n_graphs > n_graphs_per_sim:
@@ -94,7 +98,7 @@ def main():
         n_trivial += n_identities
 
         # run inference
-        _correct_preds, _ = run_inference(model, syndromes, flips, device=device)
+        _correct_preds, _ = run_inference(model, syndromes, flips, m_nearest_nodes=m_nearest_nodes, device=device)
         correct_preds += _correct_preds
     # run the remaining graphs
     if remaining > 0:
@@ -112,7 +116,7 @@ def main():
         # add identities to # trivial predictions
         n_trivial += n_identities
 
-        _correct_preds, _ = run_inference(model, syndromes, flips, device=device)
+        _correct_preds, _ = run_inference(model, syndromes, flips, m_nearest_nodes=m_nearest_nodes, device=device)
         correct_preds += _correct_preds
 
     # compute logical failure rate
