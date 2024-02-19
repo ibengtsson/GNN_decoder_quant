@@ -45,7 +45,7 @@ class GNN_7(torch.nn.Module):
         # Output later
         self.output_layer = Linear(hidden_channels_MLP[-1], num_classes)
 
-    def forward(self, x, edge_index, edge_attr, batch, fix_pt=False):
+    def forward(self, x, edge_index, edge_attr, batch):
         
         #  node embeddings
         for layer in self.graph_layers:
@@ -53,10 +53,7 @@ class GNN_7(torch.nn.Module):
             x = torch.nn.functional.relu(x, inplace=True)
         
         # graph embedding
-        if fix_pt:
-            x = global_mean_pool(x, batch).char()
-        else:
-            x =global_mean_pool(x, batch)
+        x = global_mean_pool(x, batch)
         
         for layer in self.dense_layers:
             x = layer(x)

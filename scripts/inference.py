@@ -63,6 +63,7 @@ def main():
     seed = 747
     p = 1e-3
     batch_size = n_graphs_per_sim if "cuda" in device.type else 2000
+    
     m_nearest_nodes = model_data["graph_settings"]["m_nearest_nodes"]
 
     # if we want to run inference on many graphs, do so in batches
