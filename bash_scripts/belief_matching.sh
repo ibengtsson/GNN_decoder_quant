@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-#SBATCH -A C3SE2023-1-7 -p vera
-#SBATCH -t 1-05:00:00                   # time limit days-hours:minutes:seconds
-#SBATCH -J belief_matching
-#SBATCH -o belief_matching%j.out
+#SBATCH -A NAISS2023-5-353 -p alvis
+#SBATCH -t 7-00:00:00 			# time limit days-hours:minutes:seconds
+#SBATCH -J update_paper_training
+#SBATCH -o ../job_outputs/train_for_paper%j.out
+#SBATCH --cpus-per-task=1
+#SBATCH --gpus-per-node=A40:1 # GPUs 64GB of RAM; cost factor 1.0
 
 module purge
 source ~/scripts/load_env.sh
