@@ -11,7 +11,7 @@ module purge
 source ~/scripts/load_env.sh
 
 # files
-FILES=($(find ../saved_models/update_paper/ -type f))
+FILES=($(find ../saved_models/update_paper/finished/ -type f))
 FILE=${FILES[$SLURM_ARRAY_TASK_ID]}
 
 # send script
