@@ -45,9 +45,8 @@ def main():
     print(f"Moved model to {device} and loaded pre-trained weights.")
 
     # settings
-    n_graphs = int(1e4)
-    n_graphs_per_sim = int(1000)
-    seed = 747
+    n_graphs = int(1e7)
+    n_graphs_per_sim = int(3e4)
     p = 1e-3
     
     m_nearest_nodes = model_data["graph_settings"]["m_nearest_nodes"]
@@ -75,7 +74,6 @@ def main():
             code_sz,
             p,
             n_shots=n_graphs_per_sim,
-            seed=seed + i,
         )
 
         syndromes, flips, n_identities = sim.generate_syndromes()
@@ -95,7 +93,6 @@ def main():
             code_sz,
             p,
             n_shots=remaining,
-            seed=seed - 1,
         )
 
         syndromes, flips, n_identities = sim.generate_syndromes()
