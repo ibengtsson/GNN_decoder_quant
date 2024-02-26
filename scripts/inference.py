@@ -1,30 +1,20 @@
 import argparse
 import torch
-import torch.nn as nn
-import torch_geometric.nn as nn_g
-import torch.ao.quantization as tq
-from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader
-from torch_geometric.transforms import KNNGraph, Distance, Compose
 import sys
-
+import csv
 sys.path.append("..")
 
 from src.gnn_models import GNN_7
 from src.simulations import SurfaceCodeSim
-from src.graph_representation import get_3D_graph
-from src.utils import match_and_load_state_dict, run_inference
+from src.utils import run_inference
 from pathlib import Path
-from tqdm import tqdm
-
-from sys import getsizeof
 
 
 def main():
     
-    msg = ("WARNING: If using pre-trained weights from /models"
-            + "this will likely not match results from paper"
-            + "due to slight changes in graph creation."
+    msg = ("WARNING: If using pre-trained weights from /models "
+            + "this will likely not match results from paper "
+            + "due to slight changes in graph creation. "
             + "Now node pruning is done based on euclidian distances,"
             + " before Manhattan distance was used"
     )
@@ -48,9 +38,6 @@ def main():
     else:
         raise FileNotFoundError("The file was not found!")
 
-    # hidden_channels_GCN = [32, 64]
-    # hidden_channels_MLP = [64, 32]
-    # model = GNN_7(hidden_channels_GCN, hidden_channels_MLP).to(device)
     model = GNN_7().to(device)
     model.load_state_dict(model_data["model"])
     model.eval()
@@ -58,11 +45,10 @@ def main():
     print(f"Moved model to {device} and loaded pre-trained weights.")
 
     # settings
-    n_graphs = int(1e7)
-    n_graphs_per_sim = int(10000)
+    n_graphs = int(1e4)
+    n_graphs_per_sim = int(1000)
     seed = 747
     p = 1e-3
-    batch_size = n_graphs_per_sim if "cuda" in device.type else 2000
     
     m_nearest_nodes = model_data["graph_settings"]["m_nearest_nodes"]
 
@@ -101,6 +87,7 @@ def main():
         # run inference
         _correct_preds, _ = run_inference(model, syndromes, flips, m_nearest_nodes=m_nearest_nodes, device=device)
         correct_preds += _correct_preds
+        
     # run the remaining graphs
     if remaining > 0:
         sim = SurfaceCodeSim(
@@ -123,6 +110,21 @@ def main():
     # compute logical failure rate
     failure_rate = (n_graphs - correct_preds - n_trivial) / n_graphs
     print(f"We have a logical failure rate of {failure_rate}.")
+    
+    # append result to file
+    file_path = Path("../data/failure_rates.csv")
+    data = [code_sz, reps, failure_rate]
+    
+    if file_path.is_file():
+        with open(file_path, "a", newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(data)
+    else:
+        with open(file_path, "x", newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["d", "d_t", "failure rate"])
+            writer.writerow(data)
+    
     return 0
 
 if __name__ == "__main__":
