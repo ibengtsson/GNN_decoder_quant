@@ -1,21 +1,38 @@
 import numpy as np
+import stim
 from beliefmatching import BeliefMatching
 from multiprocessing.pool import Pool
 from multiprocessing import cpu_count
 from pathlib import Path
 import sys
 
-sys.path.append("../")
-from src.simulations import SurfaceCodeSim
-
 def decode(code_sz, reps, n=int(1e3), p=1e-3):
 
-    sim = SurfaceCodeSim(reps, code_sz, p, n)
-    bm = BeliefMatching(sim.circuit, max_bp_iters=20)
+    circuit = stim.Circuit.generated(
+            "surface_code:rotated_memory_z",
+            rounds=reps,
+            distance=code_sz,
+            after_clifford_depolarization=p,
+            after_reset_flip_probability=p,
+            before_measure_flip_probability=p,
+            before_round_data_depolarization=p,
+        )
+    sampler = circuit.compile_detector_sampler()
+    bm = BeliefMatching(circuit, max_bp_iters=20)
+    
+    stim_data, observable_flips = sampler.sample(shots=n, separate_observables=True)
 
-    shots, observables, n_trivial = sim.sample_syndromes()
+    # sums over the detectors to check if we have a parity change
+    shots_w_flips = np.sum(stim_data, axis=1) != 0
+    n_trivial = np.invert(shots_w_flips).sum()
+
+    # save only data for measurements with non-empty syndromes
+    # but count how many trival (identity) syndromes we have
+    shots = stim_data[shots_w_flips, :]
+    flips = observable_flips[shots_w_flips, 0].astype(np.uint8)
+
     preds = bm.decode_batch(shots)
-    n_correct = np.sum(preds == observables[:, None]) 
+    n_correct = np.sum(preds == flips[:, None]) 
 
     return {(code_sz, reps): n_correct}, {(code_sz, reps): n_trivial}
 
