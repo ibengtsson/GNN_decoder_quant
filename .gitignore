@@ -34,3 +34,4 @@ figures/*
 
 # saved models
 saved_models/*
+data/*
