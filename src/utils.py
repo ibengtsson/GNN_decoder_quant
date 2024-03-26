@@ -8,6 +8,16 @@ import matplotlib.pyplot as plt
 import re
 from icecream import ic
 import yaml
+import datetime
+
+def time_it(func, reps, *args):
+    start_t = datetime.datetime.now()
+    for i in range(reps):
+        func(*args)
+    t_per_loop = (datetime.datetime.now() - start_t) / reps
+    
+    return t_per_loop.microseconds
+
 
 
 def match_and_load_state_dict(

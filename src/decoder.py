@@ -7,6 +7,7 @@ from src.graph_representation import get_batch_of_graphs
 from pathlib import Path
 from datetime import datetime
 import random
+import copy
 
 
 class Decoder:
@@ -51,7 +52,7 @@ class Decoder:
             self.model.parameters(), lr=training_settings["lr"]
         )
 
-        # generate a unique name to not overwrite other models
+         # generate a unique name to not overwrite other models
         name = (
             "d"
             + str(graph_settings["code_size"])
@@ -59,36 +60,45 @@ class Decoder:
             + str(graph_settings["repetitions"])
             + "_"
         )
+        
         current_datetime = datetime.now().strftime("%y%m%d-%H%M%S")
-        self.save_name = name + current_datetime
+        name = name + current_datetime
+        save_path = Path(paths["save_dir"]) / (name + ".pt")
+        
+        # make sure we did not create an existing name
+        if save_path.is_file():
+            save_path = Path(paths["save_dir"]) / (name + "_1.pt")
+        self.save_path = save_path
         
         # check if model should be loaded
         if training_settings["resume_training"]:
             self.load_trained_model()
 
-    def save_model_w_training_settings(self, model_name=None):
-        # make sure path exists, else create it
+    def save_model_w_training_settings(self):
+        
+        # make sure the save folder exists, else create it
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        if model_name is not None:
-            path = self.save_dir / (model_name + ".pt")
-        else:
-            path = self.save_dir / (self.save_name + ".pt")
 
         # we only want to save the weights that corresponds to the best found accuracy
-        if self.training_history["val_accuracy"][-1] > self.training_history["best_val_accuracy"]:
-            self.training_history["best_val_accuracy"] = self.training_history["val_accuracy"][-1]
-            self.optimal_weights = self.model.state_dict()
-        
+        if (
+            self.training_history["val_accuracy"][-1]
+            > self.training_history["best_val_accuracy"]
+        ):
+            self.training_history["best_val_accuracy"] = self.training_history[
+                "val_accuracy"
+            ][-1]
+            self.optimal_weights = copy.deepcopy(self.model.state_dict())
+
         attributes = {
             "training_history": self.training_history,
             "model": self.optimal_weights,
-            "model_settings": self.model_settings,
             "optimizer": self.optimizer.state_dict(),
             "graph_settings": self.graph_settings,
-            "training_settings": self.training_settings, 
+            "training_settings": self.training_settings,
+            "model_settings": self.model_settings,
         }
 
-        torch.save(attributes, path)
+        torch.save(attributes, self.save_path)
 
     def load_trained_model(self):
         model_path = Path(self.saved_model_path)
@@ -96,15 +106,12 @@ class Decoder:
 
         # update attributes and load model with trained weights
         self.training_history = saved_attributes["training_history"]
-        
-        # older models do not have the attribute "best_val_accuracy"
-        if not "best_val_accuracy" in self.training_history:
-            self.training_history["best_val_accuracy"] = -1
+
         self.epoch = saved_attributes["training_history"]["epoch"] + 1
         self.model.load_state_dict(saved_attributes["model"])
         self.optimizer.load_state_dict(saved_attributes["optimizer"])
-        self.save_name = self.save_name + "_load_f_" + model_path.name.split(sep=".")[0]
-        
+        self.save_path = self.save_dir / Path(self.save_path.stem + "_load_f_" + model_path.name)
+
         # only keep best found weights
         self.optimal_weights = saved_attributes["model"]
 
